@@ -1,47 +1,29 @@
-document.addEventListener('DOMContentLoaded', () => {
-  // everything else inside here
-});
+let selectedDate = new Date().toISOString().split('T')[0];
+const datePickerEl = document.getElementById('date-picker');
 
 // --- FIREBASE INITIALIZATION ---
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
-// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyAsWm4xczbTsovHHq-pTNYu3XAkqXUBQQA",
   authDomain: "eod-login.firebaseapp.com",
   projectId: "eod-login"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// Redirect to auth.html if not signed in
-onAuthStateChanged(auth, (user) => {
-  if (!user) {
-    window.location.href = "auth.html";
-  }
-});
+let currentUser = null;
+const getUserKey = () => currentUser ? `dailyReports_${currentUser.uid}` : 'dailyReports';
 
-// Logout button logic
-document.getElementById('logout-btn')?.addEventListener('click', () => {
-  signOut(auth).then(() => {
-    window.location.href = 'auth.html';
-  });
-});
-
-
-// --- GLOBAL VARIABLES ---
 let reports = [];
 let highlights = '';
 let modalCallback = null;
-const REPORTS_STORAGE_KEY = 'dailyReports';
 let historyStack = [];
 let redoStack = [];
 const MAX_HISTORY_DEPTH = 10;
 
-// --- ELEMENT REFERENCES ---
 const currentDateEl = document.getElementById('current-date');
 const todayPerformanceEl = document.getElementById('today-performance-cards');
 const overallPerformanceEl = document.getElementById('overall-performance-cards');
@@ -57,32 +39,32 @@ const modalMessageEl = document.getElementById('modal-message');
 const modalConfirmBtn = document.getElementById('modal-confirm-btn');
 const modalCancelBtn = document.getElementById('modal-cancel-btn');
 
-
-// --- STORAGE HANDLING ---
 const loadFromLocalStorage = () => {
-  const stored = localStorage.getItem(REPORTS_STORAGE_KEY);
+  const stored = localStorage.getItem(getUserKey());
   if (stored) {
     try {
-      reports = JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      const map = new Map();
+      for (const report of parsed) {
+        map.set(report.date, report);
+      }
+      reports = Array.from(map.values());
     } catch (e) {
       console.error("Failed to parse local storage data:", e);
       reports = [];
     }
   }
 
-  const today = new Date().toISOString().split('T')[0];
-  const todayReport = reports.find(r => r.date === today);
+  const todayReport = reports.find(r => r.date === selectedDate);
   highlights = todayReport?.highlights || '';
   highlightsTextarea.value = highlights;
   reports.sort((a, b) => new Date(b.date) - new Date(a.date));
 };
 
 const saveToLocalStorage = () => {
-  localStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify(reports));
+  localStorage.setItem(getUserKey(), JSON.stringify(reports));
 };
 
-
-// --- HISTORY (UNDO / REDO) ---
 const pushToHistory = () => {
   const snapshot = { reports: JSON.parse(JSON.stringify(reports)) };
   if (historyStack.length > 0 &&
@@ -117,8 +99,6 @@ const updateUndoRedoButtons = () => {
   redoButton.disabled = redoStack.length === 0;
 };
 
-
-// --- MODAL CONFIRMATION ---
 const showConfirmationModal = (message, callback) => {
   modalMessageEl.textContent = message;
   modalCallback = callback;
@@ -130,8 +110,6 @@ const hideConfirmationModal = () => {
   modalCallback = null;
 };
 
-
-// --- UI RENDERING ---
 const renderApp = () => {
   renderReports();
   renderPerformanceCards();
@@ -139,47 +117,56 @@ const renderApp = () => {
 
 const renderReports = () => {
   reportsContainerEl.innerHTML = '';
-  if (reports.length === 0) {
-    reportsContainerEl.innerHTML = `<p class="text-gray-500 text-center">No reports found.</p>`;
+
+  const selectedReport = reports.find(r => r.date === selectedDate);
+  if (!selectedReport) {
+    reportsContainerEl.innerHTML = `<p class="text-gray-500 text-center">No report found for ${selectedDate}.</p>`;
     return;
   }
 
-  reports.forEach(report => {
-    const tasksHTML = report.tasks.map((task, i) => `
-      <tr data-report-id="${report.id}" data-task-index="${i}">
-        <td class="px-6 py-4">${task.activity}</td>
-        <td class="px-6 py-4">
+  const tasksHTML = selectedReport.tasks.map((task, i) => `
+    <tr data-report-id="${selectedReport.id}" data-task-index="${i}" class="border-t">
+      <td class="px-6 py-3 truncate">${task.activity}</td>
+      <td class="px-6 py-3">
+        <div class="flex items-center">
           <select class="status-select p-1 rounded-md ${getStatusColorClass(task.status)}">
             ${["Not Yet Started", "Work in Progress", "Pending Approval", "Done"].map(status =>
               `<option value="${status}" ${status === task.status ? 'selected' : ''}>${status}</option>`
             ).join('')}
           </select>
           <button class="delete-task-btn ml-2 text-red-400 hover:text-red-600" data-task-index="${i}">✕</button>
-        </td>
-      </tr>
-    `).join('');
-
-    const highlightsHTML = report.highlights ? `<p class="mb-4"><strong>Highlights:</strong> ${report.highlights}</p>` : '';
-
-    reportsContainerEl.innerHTML += `
-      <div class="bg-gray-50 p-6 rounded-lg shadow-md">
-        <div class="flex justify-between mb-4">
-          <h4 class="font-bold">${report.date}</h4>
-          <button class="delete-report-btn text-red-500" data-report-id="${report.id}">Delete Report</button>
         </div>
-        ${highlightsHTML}
-        <table class="min-w-full">
-          <thead><tr><th>Activity</th><th>Status</th></tr></thead>
-          <tbody>${tasksHTML}</tbody>
-        </table>
+      </td>
+    </tr>
+  `).join('');
+
+  const highlightsHTML = selectedReport.highlights
+    ? `<p class="mb-4"><strong>Highlights:</strong> ${selectedReport.highlights}</p>`
+    : '';
+
+  reportsContainerEl.innerHTML = `
+    <div class="bg-gray-50 p-6 rounded-lg shadow-md">
+      <div class="flex justify-between mb-4">
+        <h4 class="font-bold">${selectedReport.date}</h4>
+        <button class="delete-report-btn text-red-500" data-report-id="${selectedReport.id}">Delete Report</button>
       </div>
-    `;
-  });
+      ${highlightsHTML}
+      <table class="min-w-full table-fixed">
+        <colgroup>
+          <col class="w-3/4" />
+          <col class="w-1/4" />
+        </colgroup>
+        <thead class="text-left border-b">
+          <tr><th class="px-6 py-3 font-semibold">Activity</th><th class="px-6 py-3 font-semibold">Status</th></tr>
+        </thead>
+        <tbody>${tasksHTML}</tbody>
+      </table>
+    </div>
+  `;
 };
 
 const renderPerformanceCards = () => {
-  const today = new Date().toISOString().split('T')[0];
-  const todayReport = reports.find(r => r.date === today);
+  const todayReport = reports.find(r => r.date === selectedDate);
   const todayStats = { Done: 0, "Work in Progress": 0, "Pending Approval": 0, "Not Yet Started": 0 };
   const allStats = { ...todayStats };
 
@@ -215,15 +202,12 @@ const getStatusColorClass = (status) => {
   }
 };
 
-
-// --- TASK MANAGEMENT ---
 const addTask = (activity, status) => {
   if (!activity) return;
   pushToHistory();
-  const today = new Date().toISOString().split('T')[0];
-  let report = reports.find(r => r.date === today);
+  let report = reports.find(r => r.date === selectedDate);
   if (!report) {
-    report = { id: `report-${Date.now()}`, date: today, highlights: '', tasks: [] };
+    report = { id: `report-${Date.now()}`, date: selectedDate, highlights: '', tasks: [] };
     reports.unshift(report);
   }
   report.tasks.push({ activity, status });
@@ -262,18 +246,21 @@ const deleteReport = (reportId) => {
 
 const updateHighlights = (text) => {
   pushToHistory();
-  const today = new Date().toISOString().split('T')[0];
-  const report = reports.find(r => r.date === today);
+  const report = reports.find(r => r.date === selectedDate);
   if (report) {
     report.highlights = text;
   } else if (text.trim()) {
-    reports.unshift({ id: `report-${Date.now()}`, date: today, tasks: [], highlights: text });
+    reports.unshift({ id: `report-${Date.now()}`, date: selectedDate, tasks: [], highlights: text });
   }
   saveToLocalStorage();
 };
 
+datePickerEl.addEventListener('change', (e) => {
+  selectedDate = e.target.value;
+  loadFromLocalStorage();
+  renderApp();
+});
 
-// --- EVENT LISTENERS ---
 const setupEventListeners = () => {
   addTaskButton.addEventListener('click', () => {
     const activity = newTaskActivityEl.value.trim();
@@ -316,18 +303,39 @@ const setupEventListeners = () => {
   redoButton.addEventListener('click', handleRedo);
   modalConfirmBtn.addEventListener('click', () => modalCallback?.());
   modalCancelBtn.addEventListener('click', hideConfirmationModal);
+
+  document.getElementById('logout-btn')?.addEventListener('click', () => {
+    signOut(auth).then(() => {
+      window.location.href = 'auth.html';
+    });
+  });
 };
 
-
-// --- INIT ---
-document.addEventListener('DOMContentLoaded', () => {
-  const today = new Date();
-  currentDateEl.textContent = today.toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  });
-
+const initializeAppLogic = () => {
+  datePickerEl.value = selectedDate;
   setupEventListeners();
   loadFromLocalStorage();
+  loadProfile(currentUser.uid);
   renderApp();
   pushToHistory();
+};
+
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    window.location.href = "auth.html";
+  } else {
+    currentUser = user;
+    initializeAppLogic();
+  }
 });
+
+const profileNameEl = document.getElementById('profile-name');
+const profileClientEl = document.getElementById('profile-client');
+const profilePositionEl = document.getElementById('profile-position');
+
+const loadProfile = (uid) => {
+  const data = JSON.parse(localStorage.getItem(`profile-${uid}`)) || {};
+  profileNameEl.textContent = data.name || '—';
+  profileClientEl.textContent = data.client || '—';
+  profilePositionEl.textContent = data.position || '—';
+};
