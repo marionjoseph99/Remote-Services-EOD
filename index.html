@@ -49,26 +49,18 @@
             </svg>
         </div>
         <h1 class="text-3xl font-bold text-green-800 mb-2">Welcome!</h1>
-        <p class="text-gray-600 mb-6">Please sign in with your Google account to access your daily reports.</p>
-        <button
-            id="sign-in-button"
-            class="w-full flex items-center justify-center gap-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
-        >
-            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
-                <path fill="#4285F4" d="M24 9.5c3.33 0 5.67 1.44 6.78 2.53l5.58-5.58C32.14 2.8 28.53 1 24 1 15.66 1 8.5 5.86 4.6 13.5l6.57 5.08C12.39 12.8 17.65 9.5 24 9.5z"/>
-                <path fill="#34A853" d="M46.75 24c0-1.52-.13-2.97-.37-4.38H24v8.83h12.86c-.56 3.01-2.31 5.5-4.99 7.2L38.4 41.5C43.1 37.1 46.75 31.06 46.75 24z"/>
-                <path fill="#FBBC05" d="M9.47 28.66c-.46-1.34-.73-2.77-.73-4.16s.27-2.82.73-4.16L3.1 15.13C1.12 19.34 0 24 0 24s1.12 4.66 3.1 8.87l6.37-5.21z"/>
-                <path fill="#EA4335" d="M24 42c6.64 0 12.22-2.18 16.29-5.94l-6.57-5.08c-2.48 1.63-5.6 2.59-9.72 2.59-6.35 0-11.61-3.3-13.4-8.03L4.6 32.5C8.5 40.14 15.66 45 24 45c3.8 0 7.4-1 10.51-2.7z"/>
+        <p class="text-gray-600 mb-6">
+            Sign in to start managing your daily reports.
+        </p>
+        <button id="google-sign-in-button" class="flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md w-full transition-all duration-200">
+            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 48 48">
+                <path d="M24 9.5c3.54 0 6.75 1.22 9.27 3.29l6.09-6.09C34.61 4.72 29.6 3 24 3 15.17 3 7.71 8.08 4.25 15.68l7.15 5.62C12.3 15.42 17.65 9.5 24 9.5z" fill="#4285F4"/>
+                <path d="M46.75 24c0-1.57-.15-3.09-.4-4.57H24v8.91h12.71c-.57 3.01-2.46 5.56-5.26 7.23l7.15 5.62c4.13-7.77 6.55-17.15 6.55-27.19z" fill="#34A853"/>
+                <path d="M12.3 32.58c-1.28-.73-2.42-1.77-3.41-2.99l-7.15 5.62c2.04 4.54 5.92 8.1 10.59 9.87C17.75 44.5 22.84 45 27.24 44.5l-7.15-5.62c-2.31-1.45-4.26-3.42-5.79-5.79z" fill="#FBBC05"/>
+                <path d="M24 19.5c2.47 0 4.69.82 6.46 2.15l6.09-6.09C30.75 11.22 27.54 10 24 10c-3.21 0-6.17 1.29-8.3 3.39l7.15 5.62c1.8-.73 3.86-1.11 6.15-1.11z" fill="#EA4335"/>
             </svg>
-            Sign In with Google
+            Sign in with Google
         </button>
-        <div id="login-loading" class="mt-4 text-sm text-gray-500 flex items-center justify-center hidden">
-            <svg class="animate-spin h-5 w-5 mr-3 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Redirecting to sign-in...
-        </div>
     </div>
 
     <!-- Main Application Container -->
@@ -102,12 +94,11 @@
                 </div>
                 <div class="flex flex-col items-center gap-2">
                     <h2 id="current-date" class="text-2xl font-bold text-green-800"></h2>
-                    <!-- Auth status is now displayed, not an interactive button -->
                     <div
                         id="auth-status-display"
                         class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200"
                     >
-                        Initializing...
+                        Signed Out
                     </div>
                 </div>
             </header>
@@ -255,8 +246,7 @@
         // HTML element references
         const loginContainerEl = document.getElementById('login-container');
         const mainAppContainerEl = document.getElementById('main-app-container');
-        const signInButton = document.getElementById('sign-in-button');
-        const loginLoadingEl = document.getElementById('login-loading');
+        const googleSignInButton = document.getElementById('google-sign-in-button');
         const userPhotoEl = document.getElementById('user-photo');
         const userNameEl = document.getElementById('user-name');
         const userPositionEl = document.getElementById('user-position');
@@ -279,6 +269,10 @@
         const modalMessageEl = document.getElementById('modal-message');
         const modalConfirmBtn = document.getElementById('modal-confirm-btn');
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
+        
+        // The following variables are provided by the Canvas environment for Firestore access.
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         /**
          * Pushes the current state to the history stack for undo functionality.
@@ -360,68 +354,62 @@
          */
         const initializeFirebase = async () => {
             try {
-                if (typeof __firebase_config !== 'undefined') {
-                    const firebaseConfig = JSON.parse(__firebase_config);
-                    const app = initializeApp(firebaseConfig);
-                    db = getFirestore(app);
-                    auth = getAuth(app);
-                    
-                    // The auth listener will handle showing the correct UI
-                    setupAuthListener();
-                } else {
-                    console.error("Firebase config not found.");
-                    // Fallback for local development
-                    loadingIndicatorEl.classList.add('hidden');
-                    // showConfirmationModal('Firebase configuration not found. The app will run in a limited, non-persistent mode.', () => {});
-                    loginContainerEl.classList.remove('hidden'); // Show login screen even if no firebase
+                if (!firebaseConfig.apiKey) {
+                  showConfirmationModal("Firebase config is missing or invalid.", () => {});
+                  return;
                 }
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // The auth listener will handle showing the correct UI
+                setupAuthListener();
+                
             } catch (error) {
                 console.error("Error initializing Firebase:", error);
-                loadingIndicatorEl.classList.add('hidden');
                 showConfirmationModal('An error occurred initializing Firebase. Check the console for details.', () => {});
             }
         };
 
         /**
-         * Handles the sign-in process using Google Sign-In with a popup.
+         * Handles the Google Sign-In process using a popup.
          */
-        const handleSignIn = async () => {
-            loginLoadingEl.classList.remove('hidden');
-            signInButton.disabled = true;
+        const handleGoogleSignIn = async () => {
+            const provider = new GoogleAuthProvider();
             try {
-                const provider = new GoogleAuthProvider();
-                await signInWithPopup(auth, provider);
+                showLoading("Signing in with Google...");
+                const result = await signInWithPopup(auth, provider);
+                // User is signed in. The onAuthStateChanged listener will handle UI updates.
+                console.log("Successfully signed in with Google:", result.user.displayName);
+                hideLoading();
             } catch (error) {
-                console.error("Error during Google sign-in:", error);
-                loginLoadingEl.classList.add('hidden');
-                signInButton.disabled = false;
-                showConfirmationModal(`Sign-in failed: ${error.message}`, () => {});
+                console.error("Error during Google Sign-In:", error);
+                hideLoading();
+                let errorMessage = 'An error occurred during Google Sign-In.';
+                if (error.code === 'auth/popup-closed-by-user') {
+                    errorMessage = 'Sign-in popup was closed. Please try again.';
+                } else if (error.code === 'auth/unauthorized-domain') {
+                    errorMessage = 'This domain is not authorized. Please add it to your Firebase console.';
+                }
+                showConfirmationModal(errorMessage, () => {});
             }
         };
-        
+
         /**
          * Sets up the Firebase authentication listener.
          */
         const setupAuthListener = () => {
             if (!auth) return;
-
             onAuthStateChanged(auth, (user) => {
                 if (user) {
                     userId = user.uid;
                     updateUIForUser(user);
                     setupFirestoreListeners();
-                    loginContainerEl.classList.add('hidden');
-                    mainAppContainerEl.classList.remove('hidden');
                 } else {
                     userId = null;
                     updateUIForGuest();
                     reports = [];
                     renderReports();
-                    loginContainerEl.classList.remove('hidden');
-                    mainAppContainerEl.classList.add('hidden');
-                    loginLoadingEl.classList.add('hidden');
-                    signInButton.disabled = false;
-                    loadingIndicatorEl.classList.add('hidden');
                 }
             });
         };
@@ -431,12 +419,8 @@
          */
         const setupFirestoreListeners = () => {
             if (!db || !userId) return;
-
             showLoading("Loading reports...");
-            
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
             const userDocRef = doc(db, 'artifacts', appId, 'users', userId);
-            
             const unsubscribeUserData = onSnapshot(userDocRef, async (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
@@ -445,9 +429,8 @@
                     userNameEl.value = userName;
                     userPositionEl.value = userPosition;
                 } else {
-                    // Create a user document if it doesn't exist. Use the display name from Google auth.
-                    const user = auth.currentUser;
-                    const initialName = user.displayName || '';
+                    // Create a user document if it doesn't exist.
+                    const initialName = auth.currentUser.displayName || '';
                     const initialPosition = '';
                     await setDoc(userDocRef, { name: initialName, position: initialPosition });
                 }
@@ -458,19 +441,16 @@
             // Listener for reports
             const reportsCollectionRef = collection(db, 'artifacts', appId, 'users', userId, 'reports');
             const q = query(reportsCollectionRef);
-
             const unsubscribeReports = onSnapshot(q, (querySnapshot) => {
                 const reportsArray = [];
                 querySnapshot.forEach((doc) => {
                     reportsArray.push({ id: doc.id, ...doc.data() });
                 });
                 reports = reportsArray.sort((a, b) => new Date(b.date) - new Date(a.date));
-
                 const today = new Date().toISOString().split('T')[0];
                 const todayReport = reports.find(report => report.date === today);
                 highlights = todayReport ? todayReport.highlights : '';
                 highlightsTextarea.value = highlights;
-
                 renderApp();
                 hideLoading();
             }, (error) => {
@@ -495,7 +475,7 @@
                 userPhotoEl.src = user.photoURL;
                 userPhotoEl.classList.remove('hidden');
             } else {
-                 userPhotoEl.classList.add('hidden');
+                userPhotoEl.classList.add('hidden');
             }
             userNameEl.disabled = false;
             userPositionEl.disabled = false;
@@ -509,6 +489,8 @@
             newTaskStatusEl.disabled = false;
             addTaskButton.disabled = false;
             highlightsTextarea.disabled = false;
+            loginContainerEl.classList.add('hidden');
+            mainAppContainerEl.classList.remove('hidden');
             updateUndoRedoButtons();
         };
 
@@ -526,451 +508,401 @@
             authStatusDisplay.classList.remove('bg-green-500', 'text-white');
             authStatusDisplay.classList.add('bg-gray-200', 'text-gray-800');
             addTaskSectionEl.classList.add('hidden');
-            newTaskActivityEl.disabled = true;
-            newTaskStatusEl.disabled = true;
-            addTaskButton.disabled = true;
-            highlightsTextarea.disabled = true;
-            updateUndoRedoButtons();
-        };
-
-        /**
-         * Renders the entire application UI based on the current state.
-         */
-        const renderApp = () => {
-            renderPerformanceCards();
-            renderReports();
-            updateUndoRedoButtons();
-        };
-
-        /**
-         * Calculates and renders the performance summary cards.
-         */
-        const renderPerformanceCards = () => {
-            const calculatePerformance = (taskList) => {
-                const counts = { 'Not Yet Started': 0, 'Work in Progress': 0, 'Pending Approval': 0, 'Done': 0 };
-                taskList.forEach(task => {
-                    if (counts[task.status] !== undefined) counts[task.status]++;
-                });
-                return counts;
-            };
-
-            const getStatusColorClass = (status) => {
-                switch (status) {
-                    case 'Done': return 'bg-green-100 text-green-800';
-                    case 'Pending Approval': return 'bg-orange-100 text-orange-800';
-                    case 'Work in Progress': return 'bg-yellow-100 text-yellow-800';
-                    case 'Not Yet Started': return 'bg-blue-100 text-blue-800';
-                    default: return '';
-                }
-            };
-            
-            const renderCards = (containerEl, performanceData) => {
-                containerEl.innerHTML = '';
-                const statuses = ['Not Yet Started', 'Work in Progress', 'Pending Approval', 'Done'];
-                statuses.forEach(status => {
-                    const card = document.createElement('div');
-                    card.className = `summary-card p-4 rounded-lg shadow-md transition-transform duration-200 ease-in-out hover:translate-y-[-3px] ${getStatusColorClass(status)}`;
-                    card.innerHTML = `
-                        <p class="text-sm font-medium mb-1">${status}</p>
-                        <p class="text-3xl font-bold">${performanceData[status] || 0}</p>
-                    `;
-                    containerEl.appendChild(card);
-                });
-            };
-
-            const today = new Date().toISOString().split('T')[0];
-            const todayReport = reports.find(report => report.date === today);
-            const todayTasks = todayReport ? todayReport.tasks : [];
-            const overallTasks = reports.flatMap(report => report.tasks);
-
-            renderCards(todayPerformanceEl, calculatePerformance(todayTasks));
-            renderCards(overallPerformanceEl, calculatePerformance(overallTasks));
-        };
-
-        /**
-         * Renders the daily reports.
-         */
-        const renderReports = () => {
             reportsContainerEl.innerHTML = '';
-            if (reports.length === 0) {
-                reportsContainerEl.innerHTML = `<p class="text-gray-500 text-center">${userId ? "No tasks reported yet. Add your first task above!" : "Please sign in to view your daily reports."}</p>`;
-                return;
-            }
-
-            reports.forEach(report => {
-                const reportDiv = document.createElement('div');
-                reportDiv.className = 'bg-white border border-gray-200 rounded-lg shadow-sm p-4';
-                
-                const sortedTasks = [...(report.tasks || [])].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                
-                let tasksHtml = sortedTasks.map((task, index) => {
-                    // Find the original index for Firestore updates
-                    const originalTaskIndex = report.tasks.findIndex(t => t.timestamp === task.timestamp && t.activity === task.activity);
-                    const statusColorClass = getStatusColorClass(task.status);
-                    
-                    return `
-                        <tr data-report-id="${report.id}" data-task-index="${originalTaskIndex}">
-                            <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                <span class="task-activity">${task.activity}</span>
-                                <input type="text" class="edit-task-input hidden p-1 text-sm border-gray-300 rounded-md w-full" value="${task.activity}" />
-                            </td>
-                            <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                <select class="task-status p-1 text-sm rounded-md font-medium ${statusColorClass}">
-                                    <option value="Not Yet Started" ${task.status === 'Not Yet Started' ? 'selected' : ''}>Not Yet Started</option>
-                                    <option value="Work in Progress" ${task.status === 'Work in Progress' ? 'selected' : ''}>Work in Progress</option>
-                                    <option value="Pending Approval" ${task.status === 'Pending Approval' ? 'selected' : ''}>Pending Approval</option>
-                                    <option value="Done" ${task.status === 'Done' ? 'selected' : ''}>Done</option>
-                                </select>
-                            </td>
-                            <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900 flex space-x-2">
-                                <button class="edit-task-btn bg-gray-500 text-white hover:bg-gray-600 px-2 py-1 text-xs rounded-md">Edit</button>
-                                <button class="save-task-btn bg-green-500 text-white hover:bg-green-600 px-2 py-1 text-xs rounded-md hidden">Save</button>
-                                <button class="cancel-task-btn bg-gray-500 text-white hover:bg-gray-600 px-2 py-1 text-xs rounded-md hidden">Cancel</button>
-                                <button class="delete-task-btn bg-red-500 text-white hover:bg-red-600 px-2 py-1 text-xs rounded-md">Delete</button>
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
-
-                const highlightsHtml = report.highlights ? `
-                    <div class="mt-4 p-3 bg-gray-50 rounded-md border border-gray-200">
-                        <p class="font-semibold text-gray-700 mb-1">Highlights:</p>
-                        <p class="text-sm text-gray-600">${report.highlights}</p>
-                    </div>
-                ` : '';
-
-                reportDiv.innerHTML = `
-                    <h4 class="text-lg font-bold text-gray-800 mb-3 pb-2 border-b border-gray-200">
-                        Date: ${new Date(report.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-                    </h4>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activity / Task</th>
-                                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                ${tasksHtml}
-                            </tbody>
-                        </table>
-                    </div>
-                    ${highlightsHtml}
-                `;
-                reportsContainerEl.appendChild(reportDiv);
-            });
+            loginContainerEl.classList.remove('hidden');
+            mainAppContainerEl.classList.add('hidden');
+            updateUndoRedoButtons();
         };
 
         /**
-         * Shows the loading indicator with a message.
+         * Shows a loading message and indicator.
          * @param {string} message - The message to display.
          */
         const showLoading = (message) => {
-            isSaving = true;
             loadingMessageEl.textContent = message;
             loadingIndicatorEl.classList.remove('hidden');
-            updateUndoRedoButtons();
         };
 
         /**
          * Hides the loading indicator.
          */
         const hideLoading = () => {
-            isSaving = false;
             loadingIndicatorEl.classList.add('hidden');
-            updateUndoRedoButtons();
         };
-        
-        /**
-         * Adds a new report/task to Firestore.
-         */
-        const handleAddTask = async () => {
-            if (!db || !userId) return;
 
-            const activity = newTaskActivityEl.value.trim();
-            if (!activity) {
-                showConfirmationModal("Task activity cannot be empty.", () => {});
+        /**
+         * Renders the application UI.
+         */
+        const renderApp = () => {
+            renderReports();
+            renderPerformanceCards();
+        };
+
+        /**
+         * Renders the daily reports in the UI.
+         */
+        const renderReports = () => {
+            reportsContainerEl.innerHTML = '';
+            if (reports.length === 0) {
+                reportsContainerEl.innerHTML = `<p class="text-gray-500 text-center">No reports found. Add a new task to get started!</p>`;
                 return;
             }
+            reports.forEach(report => {
+                const reportEl = document.createElement('div');
+                reportEl.classList.add('bg-gray-50', 'p-6', 'rounded-lg', 'shadow-md');
+                reportEl.innerHTML = `
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-lg font-bold text-gray-800">${report.date}</h4>
+                        <button class="delete-report-btn text-red-500 hover:text-red-700 transition-colors" data-report-id="${report.id}">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.25c-1.102 0-2-.884-2.042-1.996l-.38-8.218m7.596 0A2.25 2.25 0 0110.5 11.25H1.5a.75.75 0 010-1.5h15.75c.414 0 .75-.336.75-.75v-1.5a.75.75 0 00-.75-.75H9.75M5.25 7.5a.75.75 0 011.5 0v1.5a.75.75 0 01-1.5 0v-1.5z" />
+                            </svg>
+                        </button>
+                    </div>
+                    ${report.highlights ? `<p class="text-gray-600 mb-4 whitespace-pre-wrap"><strong>Highlights:</strong> ${report.highlights}</p>` : ''}
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activity</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${report.tasks.map((task, index) => `
+                                <tr data-report-id="${report.id}" data-task-index="${index}" class="hover:bg-gray-100 transition-colors duration-150">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${task.activity}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <select class="status-select p-1 rounded-md text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-500 ${getStatusColorClass(task.status)}">
+                                            <option value="Not Yet Started" ${task.status === 'Not Yet Started' ? 'selected' : ''}>Not Yet Started</option>
+                                            <option value="Work in Progress" ${task.status === 'Work in Progress' ? 'selected' : ''}>Work in Progress</option>
+                                            <option value="Pending Approval" ${task.status === 'Pending Approval' ? 'selected' : ''}>Pending Approval</option>
+                                            <option value="Done" ${task.status === 'Done' ? 'selected' : ''}>Done</option>
+                                        </select>
+                                        <button class="delete-task-btn ml-2 text-red-400 hover:text-red-600 transition-colors" data-task-index="${index}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                reportsContainerEl.appendChild(reportEl);
+            });
+        };
 
-            showLoading("Adding task...");
-            pushToHistory();
-
+        /**
+         * Renders the performance summary cards.
+         */
+        const renderPerformanceCards = () => {
+            if (!userId) {
+                todayPerformanceEl.innerHTML = '';
+                overallPerformanceEl.innerHTML = '';
+                return;
+            }
             const today = new Date().toISOString().split('T')[0];
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            const reportsCollectionRef = collection(db, 'artifacts', appId, 'users', userId, 'reports');
+            const todayReport = reports.find(r => r.date === today);
+            
+            // Calculate today's stats
+            const todayDone = todayReport ? todayReport.tasks.filter(t => t.status === 'Done').length : 0;
+            const todayInProgress = todayReport ? todayReport.tasks.filter(t => t.status === 'Work in Progress').length : 0;
+            const todayPending = todayReport ? todayReport.tasks.filter(t => t.status === 'Pending Approval').length : 0;
+            const todayNotStarted = todayReport ? todayReport.tasks.filter(t => t.status === 'Not Yet Started').length : 0;
 
+            const todayTotal = todayReport ? todayReport.tasks.length : 0;
+            const todayCompletedPercentage = todayTotal > 0 ? (todayDone / todayTotal) * 100 : 0;
+
+            todayPerformanceEl.innerHTML = `
+                ${createPerformanceCard('Tasks Done Today', todayDone, 'bg-green-100 text-green-800')}
+                ${createPerformanceCard('Work in Progress Today', todayInProgress, 'bg-yellow-100 text-yellow-800')}
+                ${createPerformanceCard('Pending Approval Today', todayPending, 'bg-orange-100 text-orange-800')}
+                ${createPerformanceCard('Not Yet Started Today', todayNotStarted, 'bg-blue-100 text-blue-800')}
+            `;
+
+            // Calculate overall stats
+            const overallTasks = reports.flatMap(r => r.tasks);
+            const overallDone = overallTasks.filter(t => t.status === 'Done').length;
+            const overallInProgress = overallTasks.filter(t => t.status === 'Work in Progress').length;
+            const overallPending = overallTasks.filter(t => t.status === 'Pending Approval').length;
+            const overallNotStarted = overallTasks.filter(t => t.status === 'Not Yet Started').length;
+            const overallTotal = overallTasks.length;
+            const overallCompletedPercentage = overallTotal > 0 ? (overallDone / overallTotal) * 100 : 0;
+
+            overallPerformanceEl.innerHTML = `
+                ${createPerformanceCard('Total Tasks Done', overallDone, 'bg-green-100 text-green-800')}
+                ${createPerformanceCard('Total Work in Progress', overallInProgress, 'bg-yellow-100 text-yellow-800')}
+                ${createPerformanceCard('Total Pending Approval', overallPending, 'bg-orange-100 text-orange-800')}
+                ${createPerformanceCard('Total Not Yet Started', overallNotStarted, 'bg-blue-100 text-blue-800')}
+            `;
+        };
+
+        /**
+         * Creates an HTML string for a performance card.
+         * @param {string} title - The title of the card.
+         * @param {number} value - The value to display.
+         * @param {string} colorClass - The Tailwind CSS class for background and text color.
+         * @returns {string} The HTML string for the card.
+         */
+        const createPerformanceCard = (title, value, colorClass) => {
+            return `
+                <div class="summary-card p-4 rounded-lg shadow-sm ${colorClass} transition-all duration-200">
+                    <p class="text-sm font-semibold">${title}</p>
+                    <p class="text-3xl font-bold mt-2">${value}</p>
+                </div>
+            `;
+        };
+        
+        // --- DATA MANAGEMENT FUNCTIONS ---
+
+        /**
+         * Saves user profile data to Firestore.
+         */
+        const saveProfile = async () => {
+            if (!userId || isSaving) return;
+            isSaving = true;
             try {
-                const todayReport = reports.find(report => report.date === today);
-                const newTask = {
-                    activity,
-                    status: newTaskStatusEl.value,
-                    timestamp: new Date().toISOString(),
-                };
+                showLoading("Saving profile...");
+                const userDocRef = doc(db, 'artifacts', appId, 'users', userId);
+                await setDoc(userDocRef, { name: userName, position: userPosition }, { merge: true });
+                hideLoading();
+                pushToHistory();
+            } catch (e) {
+                console.error("Error saving profile:", e);
+                hideLoading();
+            } finally {
+                isSaving = false;
+            }
+        };
+
+        /**
+         * Adds a new task to the current day's report.
+         * @param {string} activity - The task activity.
+         * @param {string} status - The initial status of the task.
+         */
+        const addTask = async (activity, status) => {
+            if (!userId || isSaving) return;
+            isSaving = true;
+            try {
+                showLoading("Adding task...");
+                const today = new Date().toISOString().split('T')[0];
+                const todayReport = reports.find(r => r.date === today);
 
                 if (todayReport) {
                     // Update existing report
-                    const updatedTasks = [newTask, ...todayReport.tasks];
                     const reportDocRef = doc(db, 'artifacts', appId, 'users', userId, 'reports', todayReport.id);
+                    const updatedTasks = [...todayReport.tasks, { activity, status }];
                     await setDoc(reportDocRef, { tasks: updatedTasks }, { merge: true });
                 } else {
-                    // Create a new report
-                    const newReport = {
+                    // Create new report
+                    const reportsCollectionRef = collection(db, 'artifacts', appId, 'users', userId, 'reports');
+                    await addDoc(reportsCollectionRef, {
                         date: today,
-                        tasks: [newTask],
-                        highlights: highlights,
-                    };
-                    await addDoc(reportsCollectionRef, newReport);
+                        tasks: [{ activity, status }],
+                        highlights: ''
+                    });
                 }
                 newTaskActivityEl.value = '';
                 newTaskStatusEl.value = 'Not Yet Started';
-            } catch (error) {
-                console.error("Error adding task:", error);
-            } finally {
                 hideLoading();
-            }
-        };
-        
-        /**
-         * Updates a user's name or position in Firestore.
-         * @param {string} field - The field to update ('name' or 'position').
-         * @param {string} value - The new value.
-         */
-        const handleUpdateUserInfo = async (field, value) => {
-            if (!db || !userId || value === (field === 'name' ? userName : userPosition)) return;
-
-            showLoading(`Updating ${field}...`);
-            pushToHistory();
-
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            const userDocRef = doc(db, 'artifacts', appId, 'users', userId);
-            try {
-                await setDoc(userDocRef, { [field]: value }, { merge: true });
-            } catch (error) {
-                console.error(`Error updating user ${field}:`, error);
-            } finally {
+                pushToHistory();
+            } catch (e) {
+                console.error("Error adding task:", e);
                 hideLoading();
+            } finally {
+                isSaving = false;
             }
         };
 
         /**
-         * Updates the highlights for today's report in Firestore.
-         */
-        const handleUpdateHighlights = async () => {
-            if (!db || !userId || highlightsTextarea.value === highlights) return;
-            const newHighlights = highlightsTextarea.value;
-            
-            showLoading("Saving highlights...");
-            pushToHistory();
-
-            const today = new Date().toISOString().split('T')[0];
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            const reportsCollectionRef = collection(db, 'artifacts', appId, 'users', userId, 'reports');
-
-            try {
-                const todayReport = reports.find(report => report.date === today);
-                if (todayReport) {
-                    const reportDocRef = doc(db, 'artifacts', appId, 'users', userId, 'reports', todayReport.id);
-                    await setDoc(reportDocRef, { highlights: newHighlights }, { merge: true });
-                } else {
-                    const newReport = {
-                        date: today,
-                        tasks: [],
-                        highlights: newHighlights,
-                    };
-                    await addDoc(reportsCollectionRef, newReport);
-                }
-            } catch (error) {
-                console.error("Error updating highlights:", error);
-            } finally {
-                hideLoading();
-            }
-        };
-
-        /**
-         * Updates a task's status in Firestore.
-         * @param {string} reportId - The ID of the report document.
+         * Updates the status of a specific task.
+         * @param {string} reportId - The ID of the report.
          * @param {number} taskIndex - The index of the task in the tasks array.
-         * @param {string} newStatus - The new status of the task.
+         * @param {string} newStatus - The new status.
          */
         const updateTaskStatus = async (reportId, taskIndex, newStatus) => {
-            if (!db || !userId) return;
-
-            showLoading("Updating task status...");
-            pushToHistory();
-
+            if (!userId || isSaving) return;
+            isSaving = true;
             try {
                 const report = reports.find(r => r.id === reportId);
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const reportDocRef = doc(db, 'artifacts', appId, 'users', userId, 'reports', reportId);
-                const updatedTasks = [...report.tasks];
-                updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], status: newStatus };
-                await setDoc(reportDocRef, { tasks: updatedTasks }, { merge: true });
-            } catch (error) {
-                console.error("Error updating task status:", error);
-            } finally {
+                if (report) {
+                    showLoading("Updating task status...");
+                    const updatedTasks = [...report.tasks];
+                    updatedTasks[taskIndex].status = newStatus;
+                    const reportDocRef = doc(db, 'artifacts', appId, 'users', userId, 'reports', reportId);
+                    await setDoc(reportDocRef, { tasks: updatedTasks }, { merge: true });
+                }
                 hideLoading();
+                pushToHistory();
+            } catch (e) {
+                console.error("Error updating task status:", e);
+                hideLoading();
+            } finally {
+                isSaving = false;
             }
         };
 
         /**
-         * Updates a task's activity in Firestore.
-         * @param {string} reportId - The ID of the report document.
-         * @param {number} taskIndex - The index of the task in the tasks array.
-         * @param {string} newActivity - The new activity text.
-         */
-        const updateTaskActivity = async (reportId, taskIndex, newActivity) => {
-            if (!db || !userId) return;
-
-            showLoading("Saving task activity...");
-            pushToHistory();
-
-            try {
-                const report = reports.find(r => r.id === reportId);
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const reportDocRef = doc(db, 'artifacts', appId, 'users', userId, 'reports', reportId);
-                const updatedTasks = [...report.tasks];
-                updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], activity: newActivity.trim() };
-                await setDoc(reportDocRef, { tasks: updatedTasks }, { merge: true });
-            } catch (error) {
-                console.error("Error updating task activity:", error);
-            } finally {
-                hideLoading();
-            }
-        };
-
-        /**
-         * Deletes a task from a report in Firestore.
-         * @param {string} reportId - The ID of the report document.
+         * Deletes a task from a report.
+         * @param {string} reportId - The ID of the report.
          * @param {number} taskIndex - The index of the task to delete.
          */
         const deleteTask = async (reportId, taskIndex) => {
-            if (!db || !userId) return;
-
-            showConfirmationModal("Are you sure you want to delete this task?", async () => {
+             if (!userId || isSaving) return;
+            isSaving = true;
+            try {
                 showLoading("Deleting task...");
-                pushToHistory();
-
-                try {
-                    const report = reports.find(r => r.id === reportId);
+                const report = reports.find(r => r.id === reportId);
+                if (report) {
                     const updatedTasks = report.tasks.filter((_, index) => index !== taskIndex);
-                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                     const reportDocRef = doc(db, 'artifacts', appId, 'users', userId, 'reports', reportId);
-
-                    if (updatedTasks.length === 0) {
-                        await deleteDoc(reportDocRef);
-                    } else {
-                        await setDoc(reportDocRef, { tasks: updatedTasks }, { merge: true });
-                    }
-                } catch (error) {
-                    console.error("Error deleting task:", error);
-                } finally {
-                    hideLoading();
+                    await setDoc(reportDocRef, { tasks: updatedTasks }, { merge: true });
                 }
-            });
+                hideLoading();
+                pushToHistory();
+            } catch (e) {
+                console.error("Error deleting task:", e);
+                hideLoading();
+            } finally {
+                isSaving = false;
+            }
         };
 
         /**
-         * Sets up all event listeners for the application.
+         * Deletes an entire report.
+         * @param {string} reportId - The ID of the report to delete.
          */
+        const deleteReport = async (reportId) => {
+            if (!userId || isSaving) return;
+            isSaving = true;
+            try {
+                showLoading("Deleting report...");
+                const reportDocRef = doc(db, 'artifacts', appId, 'users', userId, 'reports', reportId);
+                await deleteDoc(reportDocRef);
+                hideLoading();
+                pushToHistory();
+            } catch (e) {
+                console.error("Error deleting report:", e);
+                hideLoading();
+            } finally {
+                isSaving = false;
+            }
+        };
+
+        /**
+         * Updates the highlights for a report.
+         * @param {string} newHighlights - The new highlights text.
+         */
+        const updateHighlights = async (newHighlights) => {
+            if (!userId || isSaving) return;
+            isSaving = true;
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const todayReport = reports.find(r => r.date === today);
+
+                if (todayReport) {
+                    const reportDocRef = doc(db, 'artifacts', appId, 'users', userId, 'reports', todayReport.id);
+                    await setDoc(reportDocRef, { highlights: newHighlights }, { merge: true });
+                } else if (newHighlights.trim() !== '') {
+                    // Create a new report with just the highlights if one doesn't exist
+                    const reportsCollectionRef = collection(db, 'artifacts', appId, 'users', userId, 'reports');
+                    await addDoc(reportsCollectionRef, {
+                        date: today,
+                        tasks: [],
+                        highlights: newHighlights
+                    });
+                }
+                hideLoading();
+                pushToHistory();
+            } catch (e) {
+                console.error("Error updating highlights:", e);
+                hideLoading();
+            } finally {
+                isSaving = false;
+            }
+        };
+
+        // --- EVENT LISTENERS ---
         const setupEventListeners = () => {
-            // Login page listener
-            signInButton.addEventListener('click', handleSignIn);
+            // New listener for the Google Sign-In button
+            googleSignInButton.addEventListener('click', handleGoogleSignIn);
+            
+            // Listen for profile field changes with a debounce
+            let debounceTimer;
+            const handleProfileChange = (event) => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    userName = userNameEl.value;
+                    userPosition = userPositionEl.value;
+                    saveProfile();
+                }, 500);
+            };
+            userNameEl.addEventListener('input', handleProfileChange);
+            userPositionEl.addEventListener('input', handleProfileChange);
 
-            // User info blur listeners
-            userNameEl.addEventListener('blur', (e) => handleUpdateUserInfo('name', e.target.value));
-            userPositionEl.addEventListener('blur', (e) => handleUpdateUserInfo('position', e.target.value));
-
-            // Add task button listener
-            addTaskButton.addEventListener('click', handleAddTask);
-
-            // Highlights blur listener
-            highlightsTextarea.addEventListener('blur', handleUpdateHighlights);
-
-            // Undo/Redo button listeners
-            undoButton.addEventListener('click', handleUndo);
-            redoButton.addEventListener('click', handleRedo);
-
-            // Confirmation modal listeners
-            modalConfirmBtn.addEventListener('click', () => {
-                if (modalCallback) {
-                    modalCallback();
-                }
-                hideConfirmationModal();
-            });
-            modalCancelBtn.addEventListener('click', hideConfirmationModal);
-
-            // Event delegation for dynamically created report elements
-            reportsContainerEl.addEventListener('click', (e) => {
-                const target = e.target;
-                const row = target.closest('tr');
-                if (!row) return;
-
-                const reportId = row.dataset.reportId;
-                const taskIndex = parseInt(row.dataset.taskIndex, 10);
-
-                if (target.classList.contains('delete-task-btn')) {
-                    deleteTask(reportId, taskIndex);
-                } else if (target.classList.contains('edit-task-btn')) {
-                    const activitySpan = row.querySelector('.task-activity');
-                    const activityInput = row.querySelector('.edit-task-input');
-                    const editBtn = row.querySelector('.edit-task-btn');
-                    const saveBtn = row.querySelector('.save-task-btn');
-                    const cancelBtn = row.querySelector('.cancel-task-btn');
-                    const statusSelect = row.querySelector('.task-status');
-
-                    activitySpan.classList.add('hidden');
-                    activityInput.classList.remove('hidden');
-                    activityInput.value = activitySpan.textContent;
-                    editBtn.classList.add('hidden');
-                    saveBtn.classList.remove('hidden');
-                    cancelBtn.classList.remove('hidden');
-                    statusSelect.disabled = true;
-
-                } else if (target.classList.contains('save-task-btn')) {
-                    const activityInput = row.querySelector('.edit-task-input');
-                    updateTaskActivity(reportId, taskIndex, activityInput.value);
-
-                    const activitySpan = row.querySelector('.task-activity');
-                    const editBtn = row.querySelector('.edit-task-btn');
-                    const saveBtn = row.querySelector('.save-task-btn');
-                    const cancelBtn = row.querySelector('.cancel-task-btn');
-                    const statusSelect = row.querySelector('.task-status');
-
-                    activitySpan.classList.remove('hidden');
-                    activityInput.classList.add('hidden');
-                    editBtn.classList.remove('hidden');
-                    saveBtn.classList.add('hidden');
-                    cancelBtn.classList.add('hidden');
-                    statusSelect.disabled = false;
-                } else if (target.classList.contains('cancel-task-btn')) {
-                    const activitySpan = row.querySelector('.task-activity');
-                    const activityInput = row.querySelector('.edit-task-input');
-                    const editBtn = row.querySelector('.edit-task-btn');
-                    const saveBtn = row.querySelector('.save-task-btn');
-                    const cancelBtn = row.querySelector('.cancel-task-btn');
-                    const statusSelect = row.querySelector('.task-status');
-
-                    activitySpan.classList.remove('hidden');
-                    activityInput.classList.add('hidden');
-                    editBtn.classList.remove('hidden');
-                    saveBtn.classList.add('hidden');
-                    cancelBtn.classList.add('hidden');
-                    statusSelect.disabled = false;
+            // Listen for adding a new task
+            addTaskButton.addEventListener('click', () => {
+                const activity = newTaskActivityEl.value.trim();
+                const status = newTaskStatusEl.value;
+                if (activity) {
+                    addTask(activity, status);
+                } else {
+                    showConfirmationModal('Please enter an activity for the new task.', () => {});
                 }
             });
 
-            reportsContainerEl.addEventListener('change', (e) => {
-                const target = e.target;
-                if (target.classList.contains('task-status')) {
+            // Listen for status changes on reports, and delete buttons
+            reportsContainerEl.addEventListener('change', (event) => {
+                const { target } = event;
+                if (target.classList.contains('status-select')) {
                     const row = target.closest('tr');
                     const reportId = row.dataset.reportId;
                     const taskIndex = parseInt(row.dataset.taskIndex, 10);
                     updateTaskStatus(reportId, taskIndex, target.value);
                 }
             });
+
+            reportsContainerEl.addEventListener('click', (event) => {
+                const { target } = event;
+                const deleteReportButton = target.closest('.delete-report-btn');
+                const deleteTaskButton = target.closest('.delete-task-btn');
+                
+                if (deleteReportButton) {
+                    const reportId = deleteReportButton.dataset.reportId;
+                    showConfirmationModal('Are you sure you want to delete this entire report?', () => {
+                        deleteReport(reportId);
+                        hideConfirmationModal();
+                    });
+                } else if (deleteTaskButton) {
+                    const row = deleteTaskButton.closest('tr');
+                    const reportId = row.dataset.reportId;
+                    const taskIndex = parseInt(deleteTaskButton.dataset.taskIndex, 10);
+                    showConfirmationModal('Are you sure you want to delete this task?', () => {
+                        deleteTask(reportId, taskIndex);
+                        hideConfirmationModal();
+                    });
+                }
+            });
+
+            // Listen for highlight changes with a debounce
+            let highlightsDebounceTimer;
+            highlightsTextarea.addEventListener('input', () => {
+                clearTimeout(highlightsDebounceTimer);
+                highlightsDebounceTimer = setTimeout(() => {
+                    updateHighlights(highlightsTextarea.value);
+                }, 500);
+            });
+
+            // Undo/Redo buttons
+            undoButton.addEventListener('click', handleUndo);
+            redoButton.addEventListener('click', handleRedo);
+
+            // Modal buttons
+            modalConfirmBtn.addEventListener('click', () => {
+                if (modalCallback) modalCallback();
+            });
+            modalCancelBtn.addEventListener('click', hideConfirmationModal);
         };
         
         /**
@@ -996,7 +928,6 @@
             currentDateEl.textContent = today.toLocaleDateString('en-US', options);
 
             // Initial UI state
-            showLoading("Initializing application...");
             setupEventListeners();
             initializeFirebase();
         });
