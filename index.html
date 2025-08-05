@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Authentication Container (Login/Register/Forgot Password) -->
+    <div id="auth-container" class="auth-container">
+        <div class="auth-card">
+            <h2 id="auth-title">Login</h2>
+            <form id="auth-form">
+                <input type="email" id="auth-email" placeholder="Email" required>
+                <input type="password" id="auth-password" placeholder="Password" required>
+                <!-- Additional fields for registration, hidden by default -->
+                <input type="text" id="auth-name" placeholder="Name" style="display: none;">
+                <input type="text" id="auth-client" placeholder="Client" style="display: none;">
+                <input type="text" id="auth-position" placeholder="Position" style="display: none;">
+                
+                <button type="submit" id="auth-submit-btn">Login</button>
+            </form>
+            <p class="auth-switch">
+                Don't have an account? <a href="#" id="show-register">Register</a>
+            </p>
+            <p class="auth-switch">
+                <a href="#" id="show-forgot-password">Forgot Password?</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Dashboard Container -->
+    <div id="dashboard-container" class="dashboard-container" style="display: none;">
+        <div class="left-panel">
+            <div class="header-row">
+                <div class="date-picker-container">
+                    <button id="date-display">2025-08-05</button>
+                    <div id="calendar-popup" class="calendar-popup">
+                        <div class="calendar-header">
+                            <button id="prev-month-btn">&lt;</button>
+                            <span id="current-month-year"></span>
+                            <button id="next-month-btn">&gt;</button>
+                        </div>
+                        <div class="calendar-grid-header">
+                            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                        </div>
+                        <div id="calendar-grid" class="calendar-grid"></div>
+                    </div>
+                </div>
+                <button class="logout-btn" id="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+            <div class="user-info">
+                <p><strong>Name:</strong> <span id="user-name"></span></p>
+                <p><strong>Client:</strong> <span id="user-client"></span></p>
+                <p><strong>Position:</strong> <span id="user-position"></span></p>
+            </div>
+            <div class="performance-section">
+                <h3>Overall Performance</h3>
+                <div class="performance-grid">
+                    <div class="metric green">
+                        <p>Total Done</p>
+                        <p class="value" data-overall="done">0</p>
+                    </div>
+                    <div class="metric yellow">
+                        <p>Total Work in Progress</p>
+                        <p class="value" data-overall="wip">0</p>
+                    </div>
+                    <div class="metric blue">
+                        <p>Total Not Yet Started</p>
+                        <p class="value" data-overall="not-started">0</p>
+                    </div>
+                    <div class="metric orange">
+                        <p>Total Cancelled</p>
+                        <p class="value" data-overall="cancelled">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="right-panel">
+            
+            <div class="performance-section today-performance">
+                <h3>Today's Performance</h3>
+                <div class="performance-grid">
+                    <div class="metric green" data-status="done">
+                        <p>Done Today</p>
+                        <p class="value" id="done-today">0</p>
+                        <div class="card-actions">
+                            <button class="plus-btn"><i class="fas fa-plus"></i></button>
+                            <button class="minus-btn"><i class="fas fa-minus"></i></button>
+                        </div>
+                    </div>
+                    <div class="metric yellow" data-status="wip">
+                        <p>Work in Progress Today</p>
+                        <p class="value" id="wip-today">0</p>
+                        <div class="card-actions">
+                            <button class="plus-btn"><i class="fas fa-plus"></i></button>
+                            <button class="minus-btn"><i class="fas fa-minus"></i></button>
+                        </div>
+                    </div>
+                    <div class="metric blue" data-status="not-started">
+                        <p>Not Yet Started Today</p>
+                        <p class="value" id="not-started-today">0</p>
+                        <div class="card-actions">
+                            <button class="plus-btn"><i class="fas fa-plus"></i></button>
+                            <button class="minus-btn"><i class="fas fa-minus"></i></button>
+                        </div>
+                    </div>
+                    <div class="metric orange" data-status="cancelled">
+                        <p>Cancelled Today</p>
+                        <p class="value" id="cancelled-today">0</p>
+                        <div class="card-actions">
+                            <button class="plus-btn"><i class="fas fa-plus"></i></button>
+                            <button class="minus-btn"><i class="fas fa-minus"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="daily-reports">
+                <h3>Daily Reports for <span id="report-date">2025-08-05</span></h3>
+                <p class="no-report">No report found for this day.</p>
+                <div id="daily-activities" class="daily-activities-grid" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="add-activity-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h4>Add New Task</h4>
+            <div class="modal-form-row">
+                <input type="text" id="activity-input" placeholder="Activity/Task">
+                <button id="add-activity-btn" class="main-add-btn">
+                    <i class="fas fa-plus"></i> Add Task
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Message Modal -->
+    <div id="message-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h4 id="message-title"></h4>
+            <p id="message-text"></p>
+            <button id="message-close-btn" class="main-add-btn">OK</button>
+        </div>
+    </div>
+
+    <!-- Firebase Authentication Script -->
+    <script type="module" src="auth.js"></script>
+    <!-- Main Application Script -->
+    <script type="module" src="script.js"></script>
+</body>
+</html>
