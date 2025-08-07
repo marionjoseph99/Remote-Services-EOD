@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const addActivityModal = document.getElementById('add-activity-modal');
     const activityInput = document.getElementById('activity-input');
     const addActivityBtn = document.getElementById('add-activity-btn');
-    const plusButtons = document.querySelectorAll('.metric .plus-btn'); 
+    const plusButtons = document.querySelectorAll('.metric .plus-btn');
 
     const overallPerformanceValues = {
         done: document.querySelector('[data-overall="done"]'),
@@ -60,16 +60,13 @@ document.addEventListener('DOMContentLoaded', () => {
         'not-started': document.getElementById('not-started-today'),
         cancelled: document.getElementById('cancelled-today'),
     };
-    
+
     const dailyActivitiesList = document.getElementById('daily-activities');
     const noReportMessage = document.querySelector('.daily-reports .no-report');
     const reportDateSpan = document.getElementById('report-date');
 
-    // Custom Message Modal Elements
-    const messageModal = document.getElementById('message-modal');
-    const messageTitle = document.getElementById('message-title');
-    const messageText = document.getElementById('message-text');
-    const messageCloseBtn = document.getElementById('message-close-btn');
+    // New notification container element
+    const notificationContainer = document.getElementById('notification-container');
 
     let overallPerformance = {
         done: 0,
@@ -77,31 +74,30 @@ document.addEventListener('DOMContentLoaded', () => {
         'not-started': 0,
         cancelled: 0,
     };
-    let dailyPerformance = {}; // Stores activities for the selected day only
+    let dailyPerformance = {};
     let selectedDate = new Date();
     let currentCalendarDate = new Date();
-    let currentUserId = null; // Store the current user's UID
-    let modalStatus; // FIX: Declare modalStatus in a shared scope
+    let currentUserId = null;
+    let modalStatus;
 
     let authMode = 'login';
+    const statusOptions = {
+        'not-started': { text: 'Not Started', class: 'not-started', dotColor: 'var(--not-started-text)' },
+        'wip': { text: 'Work in Progress', class: 'wip', dotColor: 'var(--wip-text)' },
+        'done': { text: 'Done', class: 'done', dotColor: 'var(--done-text)' },
+        'cancelled': { text: 'Cancelled', class: 'cancelled', dotColor: 'var(--cancelled-text)' }
+    };
 
-    // --- Custom Message Modal Functions ---
-    function showMessage(title, message) {
-        messageTitle.textContent = title;
-        messageText.textContent = message;
-        messageModal.style.display = 'flex';
+    // --- New Notification Function ---
+    function showNotification(message, type = 'success') {
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.textContent = message;
+        notificationContainer.appendChild(notification);
+        setTimeout(() => {
+            notification.remove();
+        }, 5000); // Notification automatically hides after 5 seconds
     }
-
-    function closeMessageModal() {
-        messageModal.style.display = 'none';
-    }
-
-    messageCloseBtn.addEventListener('click', closeMessageModal);
-    messageModal.addEventListener('click', (event) => {
-        if (event.target === messageModal) {
-            closeMessageModal();
-        }
-    });
 
     // --- Helper function to format date as YYYY-MM-DD ---
     function formatDate(date) {
@@ -113,6 +109,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Function to render the calendar grid ---
     function renderCalendar() {
+        //-- day highlight function --//
+
+        
         calendarGrid.innerHTML = '';
         currentMonthYearSpan.textContent = currentCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
@@ -145,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 dayEl.classList.add('selected');
             }
             dayEl.addEventListener('click', () => {
-                selectedDate = new Date(dateString);
+                selectedDate = new Date(year, month, i);
                 updateUI();
             });
 
@@ -181,14 +180,14 @@ document.addEventListener('DOMContentLoaded', () => {
             
             try {
                 await addActivityToDailyReport(currentUserId, formattedDate, newActivity, activityStatus);
-                showMessage('Success', 'Activity added successfully!');
+                showNotification('Activity added successfully!');
                 updateUI();
             } catch (error) {
-                showMessage('Error', 'Failed to add activity: ' + error.message);
+                showNotification('Failed to add activity: ' + error.message, 'error');
             }
             closeActivityModal();
         } else if (!activityText) {
-            showMessage('Input Error', 'Please enter an activity.');
+            showNotification('Please enter an activity.', 'error');
         }
     }
 
@@ -234,26 +233,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 sortedActivities.forEach(activity => {
-                    const li = document.createElement('div');
-                    li.className = `daily-report-card ${activity.status}`;
-                    li.dataset.activityId = activity.id;
-                    li.dataset.activity = JSON.stringify(activity);
-                    li.innerHTML = `
-                        <div class="activity-text-container">
-                            <span class="activity-text">${activity.text}</span>
-                            <span class="timestamp">${activity.timestamp}</span>
-                        </div>
-                        <div class="controls">
-                            <select class="status-select">
-                                <option value="done" ${activity.status === 'done' ? 'selected' : ''}>Done</option>
-                                <option value="wip" ${activity.status === 'wip' ? 'selected' : ''}>Work in Progress</option>
-                                <option value="not-started" ${activity.status === 'not-started' ? 'selected' : ''}>Not Yet Started</option>
-                                <option value="cancelled" ${activity.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
-                            </select>
-                            <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
-                        </div>
-                    `;
-                    dailyActivitiesList.appendChild(li);
+                    const card = document.createElement('div');
+                    card.className = `daily-report-card ${activity.status}`;
+                    card.dataset.activityId = activity.id;
+                    card.dataset.activity = JSON.stringify(activity);
+                    const currentStatus = statusOptions[activity.status] || statusOptions['not-started']; // Fallback to a default status
+                    const dropdownHtml = `
+ <div class="status-dropdown">
+ <button class="status-dropdown-button" style="background-color: var(--${currentStatus.class}-bg); color: var(--${currentStatus.class}-text);">
+ ${currentStatus.text}
+ <i class="fas fa-chevron-down"></i>
+ </button>
+ <div class="status-dropdown-menu">
+ ${Object.keys(statusOptions).map(status => `
+ <button data-status="${status}">
+ <span class="status-dot" style="background-color: ${statusOptions[status].dotColor};"></span>
+ ${statusOptions[status].text}
+ </button>
+ `).join('')}
+ </div>
+ </div>
+ `;
+                    card.innerHTML = `
+ <div class="activity-text-container">
+ <span class="activity-text">${activity.text}</span>
+ <span class="timestamp">${activity.timestamp}</span>
+ </div>
+ <div class="controls">
+ ${dropdownHtml}
+ <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
+ </div>
+ `;
+                    dailyActivitiesList.appendChild(card);
                 });
             } else {
                 noReportMessage.style.display = 'block';
@@ -261,10 +272,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             renderCalendar();
         } catch (error) {
-            showMessage('Data Fetch Error', 'Failed to load user data: ' + error.message);
+            showNotification('Failed to load user data: ' + error.message, 'error');
         }
     }
-    
+
     // --- Authentication UI Functions ---
     function showAuthForm(mode) {
         authMode = mode;
@@ -275,14 +286,12 @@ document.addEventListener('DOMContentLoaded', () => {
         authNameInput.value = '';
         authClientInput.value = '';
         authPositionInput.value = '';
-
         authPasswordInput.style.display = 'block';
         authNameInput.style.display = 'none';
         authClientInput.style.display = 'none';
         authPositionInput.style.display = 'none';
         showRegisterLink.style.display = 'inline';
         showForgotPasswordLink.style.display = 'inline';
-
         if (mode === 'login') {
             authTitle.textContent = 'Login';
             authSubmitBtn.textContent = 'Login';
@@ -302,123 +311,87 @@ document.addEventListener('DOMContentLoaded', () => {
             showForgotPasswordLink.style.display = 'none';
         }
     }
-    
+
     async function showDashboard(user) {
         authContainer.style.display = 'none';
         dashboardContainer.style.display = 'flex';
         currentUserId = user.uid;
-
         const userData = await getAllUserDataFromFirestore(user.uid);
-        
-        userNameSpan.textContent = userData ? userData.name : 'N/A';
-        userClientSpan.textContent = userData ? userData.client : 'N/A';
-        userPositionSpan.textContent = userData ? userData.position : 'N/A';
-
+        if (userData) {
+            userNameSpan.textContent = userData.name || user.displayName || 'User';
+            userClientSpan.textContent = userData.client || 'N/A';
+            userPositionSpan.textContent = userData.position || 'N/A';
+        } else {
+            userNameSpan.textContent = user.displayName || 'User';
+            userClientSpan.textContent = 'N/A';
+            userPositionSpan.textContent = 'N/A';
+        }
         updateUI();
     }
 
-    // --- Event Listeners for Authentication Forms ---
-    authForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
+    // --- Event Listeners ---
+    authForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
         const email = authEmailInput.value;
         const password = authPasswordInput.value;
         const name = authNameInput.value;
         const client = authClientInput.value;
         const position = authPositionInput.value;
 
-        try {
-            if (authMode === 'login') {
-                await loginUser(email, password);
-                showMessage('Success', 'Logged in successfully!');
-            } else if (authMode === 'register') {
-                if (!name || !client || !position) {
-                    showMessage('Registration Error', 'Please fill in all registration details.');
-                    return;
-                }
+        if (authMode === 'login') {
+            try {
+                const userCredential = await loginUser(email, password);
+                console.log("Logged in user:", userCredential.user);
+            } catch (error) {
+                showNotification('Failed to log in: ' + error.message, 'error');
+            }
+        } else if (authMode === 'register') {
+            if (!name || !client || !position) {
+                showNotification('All fields are required for registration.', 'error');
+                return;
+            }
+            try {
                 const userCredential = await registerUser(email, password);
-                const user = userCredential.user;
-                await updateUserProfile(user, name);
-                await saveUserDetailsToFirestore(user.uid, { name, client, position });
-
-                showMessage('Success', 'Account created successfully! You are now logged in.');
-            } else if (authMode === 'forgot-password') {
+                await updateUserProfile(userCredential.user, name);
+                await saveUserDetailsToFirestore(userCredential.user.uid, { name, client, position });
+                console.log("Registered and saved details for:", userCredential.user);
+            } catch (error) {
+                showNotification('Failed to register: ' + error.message, 'error');
+            }
+        } else if (authMode === 'forgot-password') {
+            try {
                 await resetPassword(email);
-                showMessage('Password Reset', 'If an account with that email exists, a password reset link has been sent.');
-                showAuthForm('login');
+                showNotification('Password reset email sent. Check your inbox!');
+            } catch (error) {
+                showNotification('Failed to send reset email: ' + error.message, 'error');
             }
-        } catch (error) {
-            let errorMessage = 'An unknown error occurred.';
-            if (error.code) {
-                switch (error.code) {
-                    case 'auth/invalid-email':
-                        errorMessage = 'Invalid email address.';
-                        break;
-                    case 'auth/user-disabled':
-                        errorMessage = 'Your account has been disabled.';
-                        break;
-                    case 'auth/user-not-found':
-                        errorMessage = 'No user found with this email.';
-                        break;
-                    case 'auth/wrong-password':
-                        errorMessage = 'Incorrect password.';
-                        break;
-                    case 'auth/email-already-in-use':
-                        errorMessage = 'This email is already in use.';
-                        break;
-                    case 'auth/weak-password':
-                        errorMessage = 'Password should be at least 6 characters.';
-                        break;
-                    case 'auth/missing-password':
-                        errorMessage = 'Please enter a password.';
-                        break;
-                    default:
-                        errorMessage = error.message;
-                }
-            }
-            showMessage('Authentication Error', errorMessage);
         }
     });
 
-    showRegisterLink.addEventListener('click', (event) => {
-        event.preventDefault();
+    showRegisterLink.addEventListener('click', (e) => {
+        e.preventDefault();
         showAuthForm('register');
     });
 
-    showForgotPasswordLink.addEventListener('click', (event) => {
-        event.preventDefault();
+    showForgotPasswordLink.addEventListener('click', (e) => {
+        e.preventDefault();
         showAuthForm('forgot-password');
     });
 
     logoutBtn.addEventListener('click', async () => {
         try {
             await logoutUser();
-            showMessage('Logged Out', 'You have been successfully logged out.');
-        } catch (error) {
-            showMessage('Logout Error', 'Failed to log out: ' + error.message);
-        }
-    });
-
-    // --- Firebase Authentication State Change Listener ---
-    setupAuthChangeListener((user) => {
-        if (user) {
-            console.log("Auth state changed: User is logged in", user);
-            showDashboard(user);
-        } else {
-            console.log("Auth state changed: User is logged out");
-            currentUserId = null;
             showAuthForm('login');
-            overallPerformance = { done: 0, wip: 0, 'not-started': 0, cancelled: 0 };
-            dailyPerformance = {};
-            updateUI(); 
+        } catch (error) {
+            showNotification('Failed to log out: ' + error.message, 'error');
         }
     });
 
-    // --- Event listener to toggle the calendar popup ---
+    // Calendar logic
     dateDisplay.addEventListener('click', () => {
         calendarPopup.style.display = calendarPopup.style.display === 'block' ? 'none' : 'block';
     });
 
-    // --- Event listeners to navigate calendar months ---
     prevMonthBtn.addEventListener('click', () => {
         currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
         renderCalendar();
@@ -429,76 +402,122 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCalendar();
     });
 
-    // --- Event listeners to open the activity modal ---
-    plusButtons.forEach(button => {
-        button.addEventListener('click', (event) => {
-            const card = event.target.closest('.metric');
-            if (card) {
-                modalStatus = card.dataset.status;
+    document.addEventListener('click', (e) => {
+        if (!calendarPopup.contains(e.target) && e.target !== dateDisplay) {
+            calendarPopup.style.display = 'none';
+        }
+    });
+
+    // Activity modal
+    plusButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const statusCard = e.target.closest('.metric');
+            if (statusCard) {
+                modalStatus = statusCard.querySelector('.value').dataset.overall || statusCard.dataset.today;
+                addActivityModal.querySelector('.modal-title').textContent = `Add a new activity`;
                 addActivityModal.style.display = 'flex';
-                activityInput.focus();
             }
         });
     });
-    
+
+    // Close modal when clicking on the close button
+    document.querySelector('#add-activity-modal .modal-close-btn').addEventListener('click', () => {
+        closeActivityModal();
+    });
+
+    // Close modal when clicking outside
+    addActivityModal.addEventListener('click', (e) => {
+        if (e.target === addActivityModal) {
+            closeActivityModal();
+        }
+    });
+
+    // Handle form submission inside modal
     addActivityBtn.addEventListener('click', addNewActivity);
 
-    // Event listeners to close the activity modal
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && addActivityModal.style.display === 'flex') {
-            closeActivityModal();
-        }
-    });
-
-    addActivityModal.addEventListener('click', (event) => {
-        if (event.target === addActivityModal) {
-            closeActivityModal();
-        }
-    });
-
-    activityInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            addNewActivity();
-        }
-    });
-
-    // Event delegation for Daily Reports (status change)
-    dailyActivitiesList.addEventListener('change', async (event) => {
-        const target = event.target;
-        if (target.classList.contains('status-select') && currentUserId) {
-            const card = target.closest('.daily-report-card');
-            const newStatus = target.value;
-            const formattedDate = formatDate(selectedDate);
-            const activityToUpdate = JSON.parse(card.dataset.activity);
-
-            try {
-                await updateActivityStatus(currentUserId, formattedDate, activityToUpdate, newStatus);
-                showMessage('Success', 'Activity status updated!');
-                updateUI();
-            } catch (error) {
-                showMessage('Error', 'Failed to update activity: ' + error.message);
+    // Initial setup
+    setupAuthChangeListener(
+        (user) => {
+            if (user) {
+                showDashboard(user);
+            } else {
+                showAuthForm('login');
             }
+        },
+        (error) => {
+            showNotification('Authentication state change failed: ' + error.message, 'error');
         }
-    });
+    );
 
-    // Event delegation for Daily Reports (delete activity)
-    dailyActivitiesList.addEventListener('click', async (event) => {
-        const target = event.target;
-        const deleteButton = target.closest('.delete-btn');
+    // Delegated event listener for status updates
+    dailyActivitiesList.addEventListener('click', async (e) => {
+        const dropdownButton = e.target.closest('.status-dropdown-button');
+        if (dropdownButton) {
+            e.preventDefault();
+            e.stopPropagation();
+            const parentDropdown = dropdownButton.parentElement;
 
-        if (deleteButton && currentUserId) {
-            const card = deleteButton.closest('.daily-report-card');
+            document.querySelectorAll('.status-dropdown.show').forEach(dropdown => {
+                if (dropdown !== parentDropdown) {
+                    dropdown.classList.remove('show');
+                }
+            });
+            
+            parentDropdown.classList.toggle('show');
+            return;
+        }
+
+        const newStatusButton = e.target.closest('.status-dropdown-menu button');
+        if (newStatusButton) {
+            e.preventDefault();
+            e.stopPropagation();
+            const newStatus = newStatusButton.dataset.status;
+            const card = e.target.closest('.daily-report-card');
+            const activity = JSON.parse(card.dataset.activity);
             const formattedDate = formatDate(selectedDate);
-            const activityToDelete = JSON.parse(card.dataset.activity);
-            const status = activityToDelete.status;
 
-            try {
-                await deleteActivity(currentUserId, formattedDate, activityToDelete, status);
-                showMessage('Success', 'Activity deleted!');
-                updateUI();
-            } catch (error) {
-                showMessage('Error', 'Failed to delete activity: ' + error.message);
+            if (currentUserId && activity && newStatus) {
+                try {
+                    await updateActivityStatus(currentUserId, formattedDate, activity, newStatus);
+                    showNotification(`Activity status updated to "${statusOptions[newStatus].text}"`);
+                    updateUI();
+                } catch (error) {
+                    showNotification('Failed to update activity status: ' + error.message, 'error');
+                }
             }
+            document.querySelector('.status-dropdown.show').classList.remove('show');
+            return;
+        }
+
+        const deleteBtn = e.target.closest('.delete-btn');
+        if (deleteBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const card = e.target.closest('.daily-report-card');
+            const activityId = card.dataset.activityId;
+            const activity = JSON.parse(card.dataset.activity);
+            const formattedDate = formatDate(selectedDate);
+            if (currentUserId && activityId) {
+                try {
+                    await deleteActivity(currentUserId, formattedDate, activity, activity.status);
+                    showNotification('Activity deleted successfully!');
+                    updateUI();
+                } catch (error) {
+                    showNotification('Failed to delete activity: ' + error.message, 'error');
+                }
+            }
+            return;
         }
     });
+
+    document.addEventListener('click', (e) => {
+        const isClickInsideDropdown = e.target.closest('.status-dropdown');
+        if (!isClickInsideDropdown) {
+            document.querySelectorAll('.status-dropdown.show').forEach(dropdown => {
+                dropdown.classList.remove('show');
+            });
+        }
+    });
+
+    
 });
