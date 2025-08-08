@@ -1,6 +1,13 @@
 /*
  * File: script.js
  */
+import { 
+    getFirestore, doc, getDoc, updateDoc 
+} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+const db = getFirestore();
+
+
 import {
     registerUser,
     updateUserProfile,
@@ -13,7 +20,8 @@ import {
     getDailyActivities,
     addActivityToDailyReport,
     updateActivityStatus,
-    deleteActivity
+    deleteActivity,
+    updateActivityText // Add this line
 } from './auth.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -45,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const addActivityModal = document.getElementById('add-activity-modal');
     const activityInput = document.getElementById('activity-input');
+    const activityDescriptionInput = document.getElementById('activity-description-input');
     const addActivityBtn = document.getElementById('add-activity-btn');
     const plusButtons = document.querySelectorAll('.metric .plus-btn');
 
@@ -87,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'done': { text: 'Done', class: 'done', dotColor: 'var(--done-text)' },
         'cancelled': { text: 'Cancelled', class: 'cancelled', dotColor: 'var(--cancelled-text)' }
     };
-
+    
     // --- New Notification Function ---
     function showNotification(message, type = 'success') {
         const notification = document.createElement('div');
@@ -156,11 +165,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function closeActivityModal() {
         addActivityModal.style.display = 'none';
         activityInput.value = '';
+        activityDescriptionInput.value = '';
     }
 
     // --- Helper function to add a new activity (now with Firestore) ---
     async function addNewActivity() {
         const activityText = activityInput.value.trim();
+        const activityDescription = activityDescriptionInput.value.trim();
         const activityStatus = modalStatus;
         const formattedDate = formatDate(selectedDate);
 
@@ -174,6 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const newActivity = {
                 id: Date.now(),
                 text: activityText,
+                description: activityDescription,
                 status: activityStatus,
                 timestamp: timestamp
             };
@@ -189,6 +201,102 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (!activityText) {
             showNotification('Please enter an activity.', 'error');
         }
+    }
+
+    // --- Function to handle in-place editing for both text and description ---
+    function enableEditingMode(card, activity) {
+        const activityTextSpan = card.querySelector('.activity-text');
+        const activityDescriptionParagraph = card.querySelector('.activity-description');
+        const editBtn = card.querySelector('.edit-btn');
+        const statusBtn = card.querySelector('.status-dropdown-button');
+        const deleteBtn = card.querySelector('.delete-btn');
+        
+        // Store original values for comparison
+        const originalText = activity.text;
+        const originalDescription = activity.description || '';
+
+        // Create a new input for the text
+        const textEditor = document.createElement('input');
+        textEditor.type = 'text';
+        textEditor.value = originalText;
+        textEditor.className = 'activity-text-editor';
+        activityTextSpan.replaceWith(textEditor);
+
+        // Create a new textarea for the description
+        const descriptionEditor = document.createElement('textarea');
+        descriptionEditor.value = originalDescription;
+        descriptionEditor.className = 'activity-description-editor';
+        if (activityDescriptionParagraph) {
+            activityDescriptionParagraph.replaceWith(descriptionEditor);
+        } else {
+            // If there's no description paragraph, create a new one to hold the editor
+            const newDescriptionParagraph = document.createElement('p');
+            newDescriptionParagraph.className = 'activity-description';
+            card.querySelector('.activity-text-container').appendChild(newDescriptionParagraph);
+            newDescriptionParagraph.appendChild(descriptionEditor);
+        }
+
+        // Create and replace the Edit button with a Save button
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'save-btn';
+        saveBtn.innerHTML = '<i class="fas fa-save"></i>';
+        editBtn.replaceWith(saveBtn);
+        
+        // Disable other controls while in edit mode
+        if (statusBtn) statusBtn.disabled = true;
+        if (deleteBtn) deleteBtn.disabled = true;
+
+        // Save function to handle both fields
+        const saveChanges = async () => {
+            const newTextValue = textEditor.value.trim();
+            const newDescriptionValue = descriptionEditor.value.trim();
+            let changesMade = false;
+
+            // Check if text has changed
+            if (newTextValue !== originalText) {
+                try {
+                    await updateActivityText(currentUserId, formatDate(selectedDate), activity, 'text', newTextValue);
+                    changesMade = true;
+                } catch (error) {
+                    showNotification('Failed to update activity text: ' + error.message, 'error');
+                }
+            }
+
+            // Check if description has changed
+            if (newDescriptionValue !== originalDescription) {
+                try {
+                    await updateActivityText(currentUserId, formatDate(selectedDate), activity, 'description', newDescriptionValue);
+                    changesMade = true;
+                } catch (error) {
+                    showNotification('Failed to update activity description: ' + error.message, 'error');
+                }
+            }
+            
+            if (changesMade) {
+                showNotification('Activity updated successfully!');
+            } else {
+                showNotification('No changes were made.');
+            }
+            updateUI(); // Refresh UI after saving
+        };
+
+        // Event listener for the save button
+        saveBtn.addEventListener('click', saveChanges);
+
+        // Event listener for Enter key in editors
+        textEditor.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveChanges();
+            }
+        });
+
+        descriptionEditor.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveChanges();
+            }
+        });
     }
 
     // --- Helper function to fetch data and update the UI from Firestore ---
@@ -255,15 +363,19 @@ document.addEventListener('DOMContentLoaded', () => {
  </div>
  `;
                     card.innerHTML = `
- <div class="activity-text-container">
- <span class="activity-text">${activity.text}</span>
- <span class="timestamp">${activity.timestamp}</span>
- </div>
- <div class="controls">
- ${dropdownHtml}
- <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
- </div>
- `;
+                        <div class="activity-text-container">
+                            <span class="activity-text">${activity.text}</span>
+                            ${activity.description ? `<p class="activity-description">${activity.description}</p>` : ''}
+                            <span class="timestamp">${activity.timestamp}</span>
+                        </div>
+                        <div class="controls">
+                            ${dropdownHtml}
+                            <div class="action-buttons">
+                                <button class="edit-btn"><i class="fas fa-pencil-alt"></i></button>
+                                <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
+                            </div>
+                        </div>
+                    `;
                     dailyActivitiesList.appendChild(card);
                 });
             } else {
@@ -451,6 +563,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Delegated event listener for status updates
     dailyActivitiesList.addEventListener('click', async (e) => {
+        // Handle Edit button click
+        const editBtn = e.target.closest('.edit-btn');
+        if (editBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const card = e.target.closest('.daily-report-card');
+            const activity = JSON.parse(card.dataset.activity);
+            
+            enableEditingMode(card, activity);
+            return;
+        }
+
+        // Handle Status dropdown button click
         const dropdownButton = e.target.closest('.status-dropdown-button');
         if (dropdownButton) {
             e.preventDefault();
@@ -465,8 +590,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             parentDropdown.classList.toggle('show');
             return;
+            
         }
+        
 
+        // Handle new status selection
         const newStatusButton = e.target.closest('.status-dropdown-menu button');
         if (newStatusButton) {
             e.preventDefault();
@@ -489,6 +617,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Handle Delete button click
         const deleteBtn = e.target.closest('.delete-btn');
         if (deleteBtn) {
             e.preventDefault();
@@ -508,7 +637,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
+        
     });
+
 
     document.addEventListener('click', (e) => {
         const isClickInsideDropdown = e.target.closest('.status-dropdown');
@@ -518,6 +649,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
-
+    
     
 });
