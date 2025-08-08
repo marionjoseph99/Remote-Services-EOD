@@ -16,10 +16,10 @@ import {
     doc, 
     setDoc, 
     getDoc,
-    updateDoc, // New: Update existing documents
-    arrayUnion, // New: Add elements to an array
-    arrayRemove, // New: Remove elements from an array
-    increment // New: Increment a number
+    updateDoc,
+    arrayUnion,
+    arrayRemove,
+    increment
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 // Your web app's Firebase configuration
@@ -35,7 +35,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app); // Initialize Firestore
+const db = getFirestore(app);
 
 /**
  * Registers a new user with email and password.
@@ -50,7 +50,7 @@ export async function registerUser(email, password) {
         return userCredential;
     } catch (error) {
         console.error("Error registering user:", error.message);
-        throw error; // Re-throw to be handled by the caller
+        throw error;
     }
 }
 
@@ -150,13 +150,11 @@ export async function addActivityToDailyReport(userId, dateString, newActivity, 
         const userDocRef = doc(db, "users", userId);
         const dailyReportRef = doc(db, "users", userId, "dailyActivities", dateString);
 
-        // Update the daily activities document
         await setDoc(dailyReportRef, {
             activities: arrayUnion(newActivity),
             [status]: increment(1),
-        }, { merge: true }); // Use merge to avoid overwriting the whole document
+        }, { merge: true });
 
-        // Update the overall performance summary
         await updateDoc(userDocRef, {
             [`performanceSummary.${status}`]: increment(1)
         });
@@ -182,10 +180,8 @@ export async function updateActivityStatus(userId, dateString, activityToUpdate,
         const dailyReportRef = doc(db, "users", userId, "dailyActivities", dateString);
         const oldStatus = activityToUpdate.status;
         
-        // Update the activity status in the array
         const updatedActivity = { ...activityToUpdate, status: newStatus };
         
-        // To update an item in an array, you must remove the old one and add the new one
         await updateDoc(dailyReportRef, {
             activities: arrayRemove(activityToUpdate)
         });
@@ -195,7 +191,6 @@ export async function updateActivityStatus(userId, dateString, activityToUpdate,
             [newStatus]: increment(1)
         });
 
-        // Update the overall performance summary
         await updateDoc(userDocRef, {
             [`performanceSummary.${oldStatus}`]: increment(-1),
             [`performanceSummary.${newStatus}`]: increment(1)
@@ -221,13 +216,11 @@ export async function deleteActivity(userId, dateString, activityToDelete, statu
         const userDocRef = doc(db, "users", userId);
         const dailyReportRef = doc(db, "users", userId, "dailyActivities", dateString);
 
-        // Remove the activity from the array
         await updateDoc(dailyReportRef, {
             activities: arrayRemove(activityToDelete),
             [status]: increment(-1)
         });
 
-        // Update the overall performance summary
         await updateDoc(userDocRef, {
             [`performanceSummary.${status}`]: increment(-1)
         });
@@ -238,6 +231,32 @@ export async function deleteActivity(userId, dateString, activityToDelete, statu
         throw error;
     }
 }
+
+/**
+ * Updates the text or description of an activity.
+ * @param {string} userId - The UID of the user.
+ * @param {string} date - The date in YYYY-MM-DD format.
+ * @param {object} activity - The original activity object.
+ * @param {string} field - The field to update ('text' or 'description').
+ * @param {string} newText - The new value for the field.
+ * @returns {Promise<void>}
+ */
+export async function updateActivityText(userId, date, activity, field, newText) {
+    const dailyActivitiesRef = doc(db, "users", userId, "dailyActivities", date);
+    
+    const docSnap = await getDoc(dailyActivitiesRef);
+    if (docSnap.exists()) {
+        const data = docSnap.data();
+        const activities = data.activities;
+        const activityIndex = activities.findIndex(a => a.id === activity.id);
+
+        if (activityIndex > -1) {
+            activities[activityIndex][field] = newText;
+            await updateDoc(dailyActivitiesRef, { activities: activities });
+        }
+    }
+}
+
 
 /**
  * Logs in an existing user with email and password.
@@ -252,7 +271,7 @@ export async function loginUser(email, password) {
         return userCredential;
     } catch (error) {
         console.error("Error logging in user:", error.message);
-        throw error; // Re-throw to be handled by the caller
+        throw error;
     }
 }
 
@@ -267,7 +286,7 @@ export async function resetPassword(email) {
         console.log("Password reset email sent to:", email);
     } catch (error) {
         console.error("Error sending password reset email:", error.message);
-        throw error; // Re-throw to be handled by the caller
+        throw error;
     }
 }
 
@@ -281,7 +300,7 @@ export async function logoutUser() {
         console.log("User logged out successfully.");
     } catch (error) {
         console.error("Error logging out user:", error.message);
-        throw error; // Re-throw to be handled by the caller
+        throw error;
     }
 }
 
