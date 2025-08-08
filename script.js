@@ -1,8 +1,8 @@
 /*
  * File: script.js
  */
-import { 
-    getFirestore, doc, getDoc, updateDoc 
+import {
+    getFirestore, doc, getDoc, updateDoc, collection, getDocs, deleteDoc, addDoc
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 const db = getFirestore();
@@ -21,7 +21,7 @@ import {
     addActivityToDailyReport,
     updateActivityStatus,
     deleteActivity,
-    updateActivityText // Add this line
+    updateActivityText
 } from './auth.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -387,6 +387,83 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification('Failed to load user data: ' + error.message, 'error');
         }
     }
+    
+    // --- New helper function to get all daily reports for a user ---
+        async function getAllDailyReports(userId) {
+            if (!userId) return {};
+            // This line is the fix: Changed 'dailyReports' to 'dailyActivities'
+            const dailyActivitiesCollection = collection(db, `users/${userId}/dailyActivities`);
+            const querySnapshot = await getDocs(dailyActivitiesCollection);
+            const allReports = {};
+            querySnapshot.forEach(doc => {
+                allReports[doc.id] = doc.data();
+            });
+            return allReports;
+        }
+
+    // --- New function to move outdated 'wip' and 'not-started' activities to today ---
+    async function moveOutdatedActivitiesToToday(userId) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Normalize to midnight for comparison
+        const todayFormatted = formatDate(new Date());
+
+        try {
+            console.log("Starting to move outdated activities...");
+            const allReports = await getAllDailyReports(userId);
+            const movePromises = [];
+            let activitiesMoved = 0;
+
+            for (const date in allReports) {
+                const reportDate = new Date(date);
+                if (reportDate < today) {
+                    console.log(`Processing outdated report from: ${date}`);
+                    const reportData = allReports[date];
+                    if (reportData.activities) {
+                        for (const activity of reportData.activities) {
+                            if (activity.status === 'wip' || activity.status === 'not-started') {
+                                console.log(`Found activity to move: ${activity.text} (from ${date})`);
+                                // Add the activity to today's report
+                                movePromises.push(
+                                    addActivityToDailyReport(userId, todayFormatted, activity, activity.status)
+                                    .then(() => {
+                                        console.log(`Successfully added activity to today: ${activity.text}`);
+                                    })
+                                    .catch(error => {
+                                        console.error(`Error adding activity to today: ${activity.text}`, error);
+                                        throw error; // Propagate the error to be caught by Promise.all
+                                    })
+                                );
+                                // Delete the activity from the old report
+                                movePromises.push(
+                                    deleteActivity(userId, date, activity, activity.status)
+                                    .then(() => {
+                                        console.log(`Successfully deleted activity from old report: ${activity.text} (from ${date})`);
+                                    })
+                                    .catch(error => {
+                                        console.error(`Error deleting activity from old report: ${activity.text}`, error);
+                                        throw error; // Propagate the error to be caught by Promise.all
+                                    })
+                                );
+                                activitiesMoved++;
+                            }
+                        }
+                    }
+                }
+            }
+            if (activitiesMoved > 0) {
+              await Promise.all(movePromises);
+              showNotification(`${activitiesMoved} outdated activities have been moved to today.`);
+              updateUI();
+            } else {
+              console.log("No outdated activities to move.");
+            }
+
+        } catch (error) {
+            console.error('Error moving outdated activities:', error);
+            showNotification('Failed to automatically move outdated activities.', 'error');
+        }
+    }
+
 
     // --- Authentication UI Functions ---
     function showAuthForm(mode) {
@@ -549,9 +626,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial setup
     setupAuthChangeListener(
-        (user) => {
+        async (user) => {
             if (user) {
                 showDashboard(user);
+                await moveOutdatedActivitiesToToday(user.uid); // Automatically move activities on login
             } else {
                 showAuthForm('login');
             }
