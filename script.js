@@ -1,13 +1,4 @@
-/*
- * File: script.js
- */
-import {
-    getFirestore, doc, getDoc, updateDoc, collection, getDocs, deleteDoc, addDoc
-} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-
-const db = getFirestore();
-
-
+// File: script.js
 import {
     registerUser,
     updateUserProfile,
@@ -17,15 +8,22 @@ import {
     setupAuthChangeListener,
     saveUserDetailsToFirestore,
     getAllUserDataFromFirestore,
-    getDailyActivities,
-    addActivityToDailyReport,
+    addActivity,
     updateActivityStatus,
     deleteActivity,
-    updateActivityText
+    setupDailyActivitiesListener,
+    setupOngoingTasksListener,
+    db
 } from './auth.js';
+import {
+    collection,
+    query,
+    getDocs,
+    where,
+    doc
+} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', () => {
-    // DOM Elements
     const authContainer = document.getElementById('auth-container');
     const dashboardContainer = document.getElementById('dashboard-container');
     const authTitle = document.getElementById('auth-title');
@@ -50,10 +48,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const prevMonthBtn = document.getElementById('prev-month-btn');
     const nextMonthBtn = document.getElementById('next-month-btn');
     const calendarGrid = document.getElementById('calendar-grid');
+    const todayBtn = document.getElementById('today-btn'); // New element for "Today" button
 
     const addActivityModal = document.getElementById('add-activity-modal');
     const activityInput = document.getElementById('activity-input');
-    const activityDescriptionInput = document.getElementById('activity-description-input');
     const addActivityBtn = document.getElementById('add-activity-btn');
     const plusButtons = document.querySelectorAll('.metric .plus-btn');
 
@@ -74,7 +72,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const noReportMessage = document.querySelector('.daily-reports .no-report');
     const reportDateSpan = document.getElementById('report-date');
 
-    // New notification container element
+    const ongoingTasksContent = document.querySelector('.ongoing-tasks-content');
+    const noOngoingTasksMessage = document.querySelector('.ongoing-tasks-content .no-tasks');
+
     const notificationContainer = document.getElementById('notification-container');
 
     let overallPerformance = {
@@ -89,15 +89,34 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentUserId = null;
     let modalStatus;
 
+    // Unsubscribe functions for real-time listeners
+    let unsubscribeDaily = null;
+    let unsubscribeOngoing = null;
+
     let authMode = 'login';
     const statusOptions = {
-        'not-started': { text: 'Not Started', class: 'not-started', dotColor: 'var(--not-started-text)' },
-        'wip': { text: 'Work in Progress', class: 'wip', dotColor: 'var(--wip-text)' },
-        'done': { text: 'Done', class: 'done', dotColor: 'var(--done-text)' },
-        'cancelled': { text: 'Cancelled', class: 'cancelled', dotColor: 'var(--cancelled-text)' }
+        'not-started': {
+            text: 'Not Started',
+            class: 'not-started',
+            dotColor: 'var(--not-started-text)'
+        },
+        'wip': {
+            text: 'Work in Progress',
+            class: 'wip',
+            dotColor: 'var(--wip-text)'
+        },
+        'done': {
+            text: 'Done',
+            class: 'done',
+            dotColor: 'var(--done-text)'
+        },
+        'cancelled': {
+            text: 'Cancelled',
+            class: 'cancelled',
+            dotColor: 'var(--cancelled-text)'
+        }
     };
-    
-    // --- New Notification Function ---
+
     function showNotification(message, type = 'success') {
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
@@ -105,10 +124,9 @@ document.addEventListener('DOMContentLoaded', () => {
         notificationContainer.appendChild(notification);
         setTimeout(() => {
             notification.remove();
-        }, 5000); // Notification automatically hides after 5 seconds
+        }, 5000);
     }
 
-    // --- Helper function to format date as YYYY-MM-DD ---
     function formatDate(date) {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -116,13 +134,152 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${year}-${month}-${day}`;
     }
 
-    // --- Function to render the calendar grid ---
-    function renderCalendar() {
-        //-- day highlight function --//
+    function calculateTodayPerformance(dailyActivities, ongoingTasks) {
+        if (!currentUserId) return;
 
-        
+        let doneCount = 0;
+        let cancelledCount = 0;
+        if (dailyActivities) {
+            dailyActivities.forEach(activity => {
+                if (activity.status === 'done') doneCount++;
+                if (activity.status === 'cancelled') cancelledCount++;
+            });
+        }
+
+        let wipCount = 0;
+        let notStartedCount = 0;
+        if (ongoingTasks) {
+            ongoingTasks.forEach(task => {
+                if (task.status === 'wip') wipCount++;
+                if (task.status === 'not-started') notStartedCount++;
+            });
+        }
+
+        todayPerformanceValues.done.textContent = doneCount;
+        todayPerformanceValues.wip.textContent = wipCount;
+        todayPerformanceValues['not-started'].textContent = notStartedCount;
+        todayPerformanceValues.cancelled.textContent = cancelledCount;
+    }
+
+
+    /**
+     * Renders ONLY wip/not-started tasks from the ongoingTasks collection
+     * @param {Array} ongoingTasks - The array of tasks to render.
+     */
+    function renderOngoingTasks(ongoingTasks) {
+        if (!currentUserId) return;
+
+        const container = document.querySelector('.ongoing-tasks-content');
+        container.innerHTML = '';
+
+        if (ongoingTasks.length === 0) {
+            container.innerHTML = '<div class="no-tasks">No ongoing tasks found</div>';
+            return;
+        }
+
+        ongoingTasks.forEach(task => {
+            const taskEl = document.createElement('div');
+            taskEl.className = `daily-report-card ${task.status}`;
+            taskEl.dataset.activityId = task.id;
+            taskEl.dataset.activity = JSON.stringify(task);
+            taskEl.dataset.date = task.creationDate;
+
+            const currentStatus = statusOptions[task.status] || statusOptions['not-started'];
+            const dropdownHtml = `
+                <div class="status-dropdown">
+                    <button class="status-dropdown-button">
+                        ${currentStatus.text}
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="status-dropdown-menu">
+                        ${Object.keys(statusOptions).map(status => `
+                            <button data-status="${status}">
+                                <span class="status-dot" style="background-color: ${statusOptions[status].dotColor};"></span>
+                                ${statusOptions[status].text}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            taskEl.innerHTML = `
+                <div class="activity-text-container">
+                    <span class="activity-text">${task.text}</span>
+                    <span class="timestamp">Created on: ${task.creationDate}</span>
+                </div>
+                <div class="controls">
+                    ${dropdownHtml}
+                    <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
+                </div>
+            `;
+            container.appendChild(taskEl);
+        });
+    }
+
+    /**
+     * Renders daily report tasks from the dailyReports collection
+     * @param {Array} dailyActivities - The array of tasks to render.
+     */
+    function renderDailyActivities(dailyActivities) {
+        if (!currentUserId) return;
+
+        dailyActivitiesList.innerHTML = '';
+        if (dailyActivities && dailyActivities.length > 0) {
+            noReportMessage.style.display = 'none';
+            dailyActivitiesList.style.display = 'grid';
+            const sortedActivities = dailyActivities.sort((a, b) => {
+                const timeA = new Date(`2000/01/01 ${a.timestamp}`);
+                const timeB = new Date(`2000/01/01 ${b.timestamp}`);
+                return timeA - timeB;
+            });
+            sortedActivities.forEach(activity => {
+                const card = document.createElement('div');
+                card.className = `daily-report-card ${activity.status}`;
+                card.dataset.activityId = activity.id;
+                card.dataset.activity = JSON.stringify(activity);
+                card.dataset.date = activity.completionDate; // Use completionDate from activity
+                const currentStatus = statusOptions[activity.status] || statusOptions['not-started'];
+                const dropdownHtml = `
+                    <div class="status-dropdown">
+                        <button class="status-dropdown-button">
+                            ${currentStatus.text}
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="status-dropdown-menu">
+                            ${Object.keys(statusOptions).map(status => `
+                                <button data-status="${status}">
+                                    <span class="status-dot" style="background-color: ${statusOptions[status].dotColor};"></span>
+                                    ${statusOptions[status].text}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                card.innerHTML = `
+                    <div class="activity-text-container">
+                        <span class="activity-text">${activity.text}</span>
+                        <span class="timestamp">${activity.timestamp}</span>
+                    </div>
+                    <div class="controls">
+                        ${dropdownHtml}
+                        <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                `;
+                dailyActivitiesList.appendChild(card);
+            });
+        } else {
+            noReportMessage.style.display = 'block';
+            dailyActivitiesList.style.display = 'none';
+        }
+    }
+
+
+    function renderCalendar() {
         calendarGrid.innerHTML = '';
-        currentMonthYearSpan.textContent = currentCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        currentMonthYearSpan.textContent = currentCalendarDate.toLocaleDateString('en-US', {
+            month: 'long',
+            year: 'numeric'
+        });
 
         const year = currentCalendarDate.getFullYear();
         const month = currentCalendarDate.getMonth();
@@ -153,49 +310,85 @@ document.addEventListener('DOMContentLoaded', () => {
                 dayEl.classList.add('selected');
             }
             dayEl.addEventListener('click', () => {
-                selectedDate = new Date(year, month, i);
-                updateUI();
+                const parts = dateString.split('-');
+                // Create the date in CST to avoid timezone issues
+                selectedDate = new Date(parts[0], parts[1] - 1, parts[2], 12); // Using 12pm to avoid timezone shift
+                updateUI(currentUserId, selectedDate);
             });
 
             calendarGrid.appendChild(dayEl);
         }
     }
 
-    // --- Helper function to close the activity modal ---
     function closeActivityModal() {
         addActivityModal.style.display = 'none';
         activityInput.value = '';
-        activityDescriptionInput.value = '';
     }
 
-    // --- Helper function to add a new activity (now with Firestore) ---
+    function updateOverallPerformanceUI() {
+        if (!overallPerformanceValues) return;
+        overallPerformanceValues.done.textContent = overallPerformance.done;
+        overallPerformanceValues.wip.textContent = overallPerformance.wip;
+        overallPerformanceValues['not-started'].textContent = overallPerformance['not-started'];
+        overallPerformanceValues.cancelled.textContent = overallPerformance.cancelled;
+    }
+
+
+    // New function to handle optimistic UI update for adding a task
     async function addNewActivity() {
         const activityText = activityInput.value.trim();
-        const activityDescription = activityDescriptionInput.value.trim();
         const activityStatus = modalStatus;
-        const formattedDate = formatDate(selectedDate);
+        const formattedDate = formatDate(selectedDate); // Corrected to use selectedDate
 
         if (activityText && currentUserId) {
             const now = new Date();
             const timestamp = now.toLocaleTimeString('en-US', {
                 hour: '2-digit',
                 minute: '2-digit',
-                timeZone: 'America/Los_Angeles'
+                timeZone: 'America/Chicago'
             });
             const newActivity = {
                 id: Date.now(),
                 text: activityText,
-                description: activityDescription,
                 status: activityStatus,
-                timestamp: timestamp
+                timestamp: timestamp,
             };
-            
+
+            // Set creationDate or completionDate based on status
+            if (activityStatus === 'done' || activityStatus === 'cancelled') {
+                newActivity.completionDate = formattedDate;
+            } else {
+                newActivity.creationDate = formattedDate;
+            }
+
+
+            // Optimistically update the UI by manually creating a card
+            const container = (activityStatus === 'done' || activityStatus === 'cancelled') ? dailyActivitiesList : ongoingTasksContent;
+            const newCard = createActivityCard(newActivity);
+
+            // Only append the card if the date matches the current view
+            const currentFormattedDate = formatDate(selectedDate);
+            if (formattedDate === currentFormattedDate || (activityStatus === 'wip' || activityStatus === 'not-started')) {
+                container.appendChild(newCard);
+            }
+
+            // Optimistically update overall performance counters
+            const oldOverallPerformance = { ...overallPerformance
+            };
+            if (overallPerformance[activityStatus] !== undefined) {
+                overallPerformance[activityStatus]++;
+                updateOverallPerformanceUI();
+            }
+
             try {
-                await addActivityToDailyReport(currentUserId, formattedDate, newActivity, activityStatus);
+                await addActivity(currentUserId, newActivity);
                 showNotification('Activity added successfully!');
-                updateUI();
             } catch (error) {
                 showNotification('Failed to add activity: ' + error.message, 'error');
+                // Revert the optimistic UI update on failure
+                newCard.remove();
+                overallPerformance = oldOverallPerformance;
+                updateOverallPerformanceUI();
             }
             closeActivityModal();
         } else if (!activityText) {
@@ -203,269 +396,88 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Function to handle in-place editing for both text and description ---
-    function enableEditingMode(card, activity) {
-        const activityTextSpan = card.querySelector('.activity-text');
-        const activityDescriptionParagraph = card.querySelector('.activity-description');
-        const editBtn = card.querySelector('.edit-btn');
-        const statusBtn = card.querySelector('.status-dropdown-button');
-        const deleteBtn = card.querySelector('.delete-btn');
-        
-        // Store original values for comparison
-        const originalText = activity.text;
-        const originalDescription = activity.description || '';
+    /**
+     * Main function to set up listeners and render the UI.
+     */
+    async function updateUI(userId, date) {
+        if (!userId) return;
 
-        // Create a new input for the text
-        const textEditor = document.createElement('input');
-        textEditor.type = 'text';
-        textEditor.value = originalText;
-        textEditor.className = 'activity-text-editor';
-        activityTextSpan.replaceWith(textEditor);
-
-        // Create a new textarea for the description
-        const descriptionEditor = document.createElement('textarea');
-        descriptionEditor.value = originalDescription;
-        descriptionEditor.className = 'activity-description-editor';
-        if (activityDescriptionParagraph) {
-            activityDescriptionParagraph.replaceWith(descriptionEditor);
-        } else {
-            // If there's no description paragraph, create a new one to hold the editor
-            const newDescriptionParagraph = document.createElement('p');
-            newDescriptionParagraph.className = 'activity-description';
-            card.querySelector('.activity-text-container').appendChild(newDescriptionParagraph);
-            newDescriptionParagraph.appendChild(descriptionEditor);
-        }
-
-        // Create and replace the Edit button with a Save button
-        const saveBtn = document.createElement('button');
-        saveBtn.className = 'save-btn';
-        saveBtn.innerHTML = '<i class="fas fa-save"></i>';
-        editBtn.replaceWith(saveBtn);
-        
-        // Disable other controls while in edit mode
-        if (statusBtn) statusBtn.disabled = true;
-        if (deleteBtn) deleteBtn.disabled = true;
-
-        // Save function to handle both fields
-        const saveChanges = async () => {
-            const newTextValue = textEditor.value.trim();
-            const newDescriptionValue = descriptionEditor.value.trim();
-            let changesMade = false;
-
-            // Check if text has changed
-            if (newTextValue !== originalText) {
-                try {
-                    await updateActivityText(currentUserId, formatDate(selectedDate), activity, 'text', newTextValue);
-                    changesMade = true;
-                } catch (error) {
-                    showNotification('Failed to update activity text: ' + error.message, 'error');
-                }
-            }
-
-            // Check if description has changed
-            if (newDescriptionValue !== originalDescription) {
-                try {
-                    await updateActivityText(currentUserId, formatDate(selectedDate), activity, 'description', newDescriptionValue);
-                    changesMade = true;
-                } catch (error) {
-                    showNotification('Failed to update activity description: ' + error.message, 'error');
-                }
-            }
-            
-            if (changesMade) {
-                showNotification('Activity updated successfully!');
-            } else {
-                showNotification('No changes were made.');
-            }
-            updateUI(); // Refresh UI after saving
-        };
-
-        // Event listener for the save button
-        saveBtn.addEventListener('click', saveChanges);
-
-        // Event listener for Enter key in editors
-        textEditor.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                saveChanges();
-            }
-        });
-
-        descriptionEditor.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                saveChanges();
-            }
-        });
-    }
-
-    // --- Helper function to fetch data and update the UI from Firestore ---
-    async function updateUI() {
-        if (!currentUserId) return;
-
-        const formattedDate = formatDate(selectedDate);
+        const formattedDate = formatDate(date);
         dateDisplay.textContent = formattedDate;
         reportDateSpan.textContent = formattedDate;
 
+        // Unsubscribe from the previous daily listener if it exists
+        if (unsubscribeDaily) unsubscribeDaily();
+
+        // Set up a new real-time listener for the selected date
+        unsubscribeDaily = setupDailyActivitiesListener(userId, formattedDate, (activities) => {
+            renderDailyActivities(activities);
+            // We also need to recalculate today's performance when the date changes
+            const ongoingTasks = document.querySelectorAll('.ongoing-tasks-content .daily-report-card');
+            calculateTodayPerformance(activities, ongoingTasks);
+        });
+
         try {
-            const userData = await getAllUserDataFromFirestore(currentUserId);
+            const userData = await getAllUserDataFromFirestore(userId);
             if (userData && userData.performanceSummary) {
                 overallPerformance = userData.performanceSummary;
-                overallPerformanceValues.done.textContent = overallPerformance.done;
-                overallPerformanceValues.wip.textContent = overallPerformance.wip;
-                overallPerformanceValues['not-started'].textContent = overallPerformance['not-started'];
-                overallPerformanceValues.cancelled.textContent = overallPerformance.cancelled;
             } else {
-                overallPerformance = { done: 0, wip: 0, 'not-started': 0, cancelled: 0 };
-                overallPerformanceValues.done.textContent = 0;
-                overallPerformanceValues.wip.textContent = 0;
-                overallPerformanceValues['not-started'].textContent = 0;
-                overallPerformanceValues.cancelled.textContent = 0;
+                overallPerformance = {
+                    done: 0,
+                    wip: 0,
+                    'not-started': 0,
+                    cancelled: 0
+                };
             }
-
-            const todayData = await getDailyActivities(currentUserId, formattedDate);
-            
-            todayPerformanceValues.done.textContent = todayData ? todayData.done || 0 : 0;
-            todayPerformanceValues.wip.textContent = todayData ? todayData.wip || 0 : 0;
-            todayPerformanceValues['not-started'].textContent = todayData ? todayData['not-started'] || 0 : 0;
-            todayPerformanceValues.cancelled.textContent = todayData ? todayData.cancelled || 0 : 0;
-
-            dailyActivitiesList.innerHTML = '';
-            if (todayData && todayData.activities && todayData.activities.length > 0) {
-                noReportMessage.style.display = 'none';
-                dailyActivitiesList.style.display = 'grid';
-                const sortedActivities = todayData.activities.sort((a, b) => {
-                    const timeA = new Date(`2000/01/01 ${a.timestamp}`);
-                    const timeB = new Date(`2000/01/01 ${b.timestamp}`);
-                    return timeA - timeB;
-                });
-
-                sortedActivities.forEach(activity => {
-                    const card = document.createElement('div');
-                    card.className = `daily-report-card ${activity.status}`;
-                    card.dataset.activityId = activity.id;
-                    card.dataset.activity = JSON.stringify(activity);
-                    const currentStatus = statusOptions[activity.status] || statusOptions['not-started']; // Fallback to a default status
-                    const dropdownHtml = `
- <div class="status-dropdown">
- <button class="status-dropdown-button" style="background-color: var(--${currentStatus.class}-bg); color: var(--${currentStatus.class}-text);">
- ${currentStatus.text}
- <i class="fas fa-chevron-down"></i>
- </button>
- <div class="status-dropdown-menu">
- ${Object.keys(statusOptions).map(status => `
- <button data-status="${status}">
- <span class="status-dot" style="background-color: ${statusOptions[status].dotColor};"></span>
- ${statusOptions[status].text}
- </button>
- `).join('')}
- </div>
- </div>
- `;
-                    card.innerHTML = `
-                        <div class="activity-text-container">
-                            <span class="activity-text">${activity.text}</span>
-                            ${activity.description ? `<p class="activity-description">${activity.description}</p>` : ''}
-                            <span class="timestamp">${activity.timestamp}</span>
-                        </div>
-                        <div class="controls">
-                            ${dropdownHtml}
-                            <div class="action-buttons">
-                                <button class="edit-btn"><i class="fas fa-pencil-alt"></i></button>
-                                <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
-                            </div>
-                        </div>
-                    `;
-                    dailyActivitiesList.appendChild(card);
-                });
-            } else {
-                noReportMessage.style.display = 'block';
-                dailyActivitiesList.style.display = 'none';
-            }
-            renderCalendar();
+            updateOverallPerformanceUI();
         } catch (error) {
             showNotification('Failed to load user data: ' + error.message, 'error');
         }
     }
-    
-    // --- New helper function to get all daily reports for a user ---
-        async function getAllDailyReports(userId) {
-            if (!userId) return {};
-            // This line is the fix: Changed 'dailyReports' to 'dailyActivities'
-            const dailyActivitiesCollection = collection(db, `users/${userId}/dailyActivities`);
-            const querySnapshot = await getDocs(dailyActivitiesCollection);
-            const allReports = {};
-            querySnapshot.forEach(doc => {
-                allReports[doc.id] = doc.data();
-            });
-            return allReports;
-        }
 
-    // --- New function to move outdated 'wip' and 'not-started' activities to today ---
-    async function moveOutdatedActivitiesToToday(userId) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Normalize to midnight for comparison
-        const todayFormatted = formatDate(new Date());
-
-        try {
-            console.log("Starting to move outdated activities...");
-            const allReports = await getAllDailyReports(userId);
-            const movePromises = [];
-            let activitiesMoved = 0;
-
-            for (const date in allReports) {
-                const reportDate = new Date(date);
-                if (reportDate < today) {
-                    console.log(`Processing outdated report from: ${date}`);
-                    const reportData = allReports[date];
-                    if (reportData.activities) {
-                        for (const activity of reportData.activities) {
-                            if (activity.status === 'wip' || activity.status === 'not-started') {
-                                console.log(`Found activity to move: ${activity.text} (from ${date})`);
-                                // Add the activity to today's report
-                                movePromises.push(
-                                    addActivityToDailyReport(userId, todayFormatted, activity, activity.status)
-                                    .then(() => {
-                                        console.log(`Successfully added activity to today: ${activity.text}`);
-                                    })
-                                    .catch(error => {
-                                        console.error(`Error adding activity to today: ${activity.text}`, error);
-                                        throw error; // Propagate the error to be caught by Promise.all
-                                    })
-                                );
-                                // Delete the activity from the old report
-                                movePromises.push(
-                                    deleteActivity(userId, date, activity, activity.status)
-                                    .then(() => {
-                                        console.log(`Successfully deleted activity from old report: ${activity.text} (from ${date})`);
-                                    })
-                                    .catch(error => {
-                                        console.error(`Error deleting activity from old report: ${activity.text}`, error);
-                                        throw error; // Propagate the error to be caught by Promise.all
-                                    })
-                                );
-                                activitiesMoved++;
-                            }
-                        }
-                    }
-                }
-            }
-            if (activitiesMoved > 0) {
-              await Promise.all(movePromises);
-              showNotification(`${activitiesMoved} outdated activities have been moved to today.`);
-              updateUI();
-            } else {
-              console.log("No outdated activities to move.");
-            }
-
-        } catch (error) {
-            console.error('Error moving outdated activities:', error);
-            showNotification('Failed to automatically move outdated activities.', 'error');
-        }
+    /**
+     * Creates an activity card element.
+     * @param {object} activity - The activity object.
+     * @returns {HTMLElement} The created card element.
+     */
+    function createActivityCard(activity) {
+        const card = document.createElement('div');
+        card.className = `daily-report-card ${activity.status}`;
+        card.dataset.activityId = activity.id;
+        card.dataset.activity = JSON.stringify(activity);
+        card.dataset.date = activity.creationDate || activity.completionDate;
+        const currentStatus = statusOptions[activity.status] || statusOptions['not-started'];
+        const dropdownHtml = `
+            <div class="status-dropdown">
+                <button class="status-dropdown-button">
+                    ${currentStatus.text}
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="status-dropdown-menu">
+                    ${Object.keys(statusOptions).map(status => `
+                        <button data-status="${status}">
+                            <span class="status-dot" style="background-color: ${statusOptions[status].dotColor};"></span>
+                            ${statusOptions[status].text}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        const dateDisplay = activity.creationDate ? `Created on: ${activity.creationDate}` : `Completed on: ${activity.completionDate}`;
+        card.innerHTML = `
+            <div class="activity-text-container">
+                <span class="activity-text">${activity.text}</span>
+                <span class="timestamp">${dateDisplay}</span>
+            </div>
+            <div class="controls">
+                ${dropdownHtml}
+                <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
+            </div>
+        `;
+        return card;
     }
 
 
-    // --- Authentication UI Functions ---
     function showAuthForm(mode) {
         authMode = mode;
         authContainer.style.display = 'flex';
@@ -505,6 +517,18 @@ document.addEventListener('DOMContentLoaded', () => {
         authContainer.style.display = 'none';
         dashboardContainer.style.display = 'flex';
         currentUserId = user.uid;
+
+        // Unsubscribe from previous ongoing listener if it exists
+        if (unsubscribeOngoing) unsubscribeOngoing();
+
+        // Set up the ongoing tasks listener which is not date-specific
+        unsubscribeOngoing = setupOngoingTasksListener(currentUserId, (tasks) => {
+            renderOngoingTasks(tasks);
+            // This is now the source of truth, so we use it to calculate today's performance
+            const dailyActivities = document.querySelectorAll('.daily-reports .daily-report-card');
+            calculateTodayPerformance(dailyActivities, tasks);
+        });
+
         const userData = await getAllUserDataFromFirestore(user.uid);
         if (userData) {
             userNameSpan.textContent = userData.name || user.displayName || 'User';
@@ -515,10 +539,11 @@ document.addEventListener('DOMContentLoaded', () => {
             userClientSpan.textContent = 'N/A';
             userPositionSpan.textContent = 'N/A';
         }
-        updateUI();
+
+        updateUI(user.uid, new Date());
+        renderCalendar();
     }
 
-    // --- Event Listeners ---
     authForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = authEmailInput.value;
@@ -542,7 +567,11 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const userCredential = await registerUser(email, password);
                 await updateUserProfile(userCredential.user, name);
-                await saveUserDetailsToFirestore(userCredential.user.uid, { name, client, position });
+                await saveUserDetailsToFirestore(userCredential.user.uid, {
+                    name,
+                    client,
+                    position
+                });
                 console.log("Registered and saved details for:", userCredential.user);
             } catch (error) {
                 showNotification('Failed to register: ' + error.message, 'error');
@@ -576,7 +605,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Calendar logic
     dateDisplay.addEventListener('click', () => {
         calendarPopup.style.display = calendarPopup.style.display === 'block' ? 'none' : 'block';
     });
@@ -591,45 +619,58 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCalendar();
     });
 
+    todayBtn.addEventListener('click', () => {
+        selectedDate = new Date();
+        currentCalendarDate = new Date();
+        updateUI(currentUserId, selectedDate);
+        renderCalendar();
+        calendarPopup.style.display = 'none';
+    });
+
     document.addEventListener('click', (e) => {
-        if (!calendarPopup.contains(e.target) && e.target !== dateDisplay) {
+        if (!calendarPopup.contains(e.target) && e.target !== dateDisplay && e.target.closest('#calendar-popup') === null) {
             calendarPopup.style.display = 'none';
         }
     });
 
-    // Activity modal
     plusButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
             const statusCard = e.target.closest('.metric');
             if (statusCard) {
-                modalStatus = statusCard.querySelector('.value').dataset.overall || statusCard.dataset.today;
+                modalStatus = statusCard.dataset.today;
                 addActivityModal.querySelector('.modal-title').textContent = `Add a new activity`;
                 addActivityModal.style.display = 'flex';
             }
         });
     });
 
-    // Close modal when clicking on the close button
     document.querySelector('#add-activity-modal .modal-close-btn').addEventListener('click', () => {
         closeActivityModal();
     });
 
-    // Close modal when clicking outside
     addActivityModal.addEventListener('click', (e) => {
         if (e.target === addActivityModal) {
             closeActivityModal();
         }
     });
 
-    // Handle form submission inside modal
     addActivityBtn.addEventListener('click', addNewActivity);
 
-    // Initial setup
+    document.querySelector('.ongoing-tasks-header').addEventListener('click', () => {
+        const content = document.querySelector('.ongoing-tasks-content');
+        const toggleBtn = document.querySelector('.collapse-toggle');
+
+        content.classList.toggle('collapsed');
+        toggleBtn.classList.toggle('collapsed');
+    });
+
     setupAuthChangeListener(
-        async (user) => {
+        (user) => {
             if (user) {
+                // Set the selected date to today when the user logs in or refreshes
+                selectedDate = new Date();
+                currentCalendarDate = new Date();
                 showDashboard(user);
-                await moveOutdatedActivitiesToToday(user.uid); // Automatically move activities on login
             } else {
                 showAuthForm('login');
             }
@@ -639,21 +680,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     );
 
-    // Delegated event listener for status updates
+    // Delegated event listener for daily activities list
     dailyActivitiesList.addEventListener('click', async (e) => {
-        // Handle Edit button click
-        const editBtn = e.target.closest('.edit-btn');
-        if (editBtn) {
-            e.preventDefault();
-            e.stopPropagation();
-            const card = e.target.closest('.daily-report-card');
-            const activity = JSON.parse(card.dataset.activity);
-            
-            enableEditingMode(card, activity);
-            return;
-        }
-
-        // Handle Status dropdown button click
         const dropdownButton = e.target.closest('.status-dropdown-button');
         if (dropdownButton) {
             e.preventDefault();
@@ -665,14 +693,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     dropdown.classList.remove('show');
                 }
             });
-            
+
             parentDropdown.classList.toggle('show');
             return;
-            
         }
-        
 
-        // Handle new status selection
         const newStatusButton = e.target.closest('.status-dropdown-menu button');
         if (newStatusButton) {
             e.preventDefault();
@@ -680,44 +705,177 @@ document.addEventListener('DOMContentLoaded', () => {
             const newStatus = newStatusButton.dataset.status;
             const card = e.target.closest('.daily-report-card');
             const activity = JSON.parse(card.dataset.activity);
-            const formattedDate = formatDate(selectedDate);
 
             if (currentUserId && activity && newStatus) {
+                const oldStatus = activity.status;
+                const originalCardHTML = card.innerHTML;
+
+                // Optimistically update overall performance counters
+                if (overallPerformance[oldStatus] !== undefined) overallPerformance[oldStatus]--;
+                if (overallPerformance[newStatus] !== undefined) overallPerformance[newStatus]++;
+                updateOverallPerformanceUI();
+
+                // Optimistically update the card's status text and class
+                card.classList.remove(oldStatus);
+                card.classList.add(newStatus);
+                card.querySelector('.status-dropdown-button').textContent = statusOptions[newStatus].text;
+
                 try {
-                    await updateActivityStatus(currentUserId, formattedDate, activity, newStatus);
+                    const todayDate = formatDate(new Date());
+                    await updateActivityStatus(currentUserId, activity, newStatus, todayDate);
                     showNotification(`Activity status updated to "${statusOptions[newStatus].text}"`);
-                    updateUI();
                 } catch (error) {
                     showNotification('Failed to update activity status: ' + error.message, 'error');
+                    // Revert the UI on failure
+                    card.classList.remove(newStatus);
+                    card.classList.add(oldStatus);
+                    card.querySelector('.status-dropdown-button').textContent = statusOptions[oldStatus].text;
+                    // Revert the overall performance counters
+                    if (overallPerformance[oldStatus] !== undefined) overallPerformance[oldStatus]++;
+                    if (overallPerformance[newStatus] !== undefined) overallPerformance[newStatus]--;
+                    updateOverallPerformanceUI();
                 }
             }
-            document.querySelector('.status-dropdown.show').classList.remove('show');
+            const dropdownElement = document.querySelector('.status-dropdown.show');
+            if (dropdownElement) {
+                dropdownElement.classList.remove('show');
+            }
             return;
         }
 
-        // Handle Delete button click
         const deleteBtn = e.target.closest('.delete-btn');
         if (deleteBtn) {
             e.preventDefault();
             e.stopPropagation();
             const card = e.target.closest('.daily-report-card');
-            const activityId = card.dataset.activityId;
             const activity = JSON.parse(card.dataset.activity);
-            const formattedDate = formatDate(selectedDate);
-            if (currentUserId && activityId) {
-                try {
-                    await deleteActivity(currentUserId, formattedDate, activity, activity.status);
-                    showNotification('Activity deleted successfully!');
-                    updateUI();
-                } catch (error) {
-                    showNotification('Failed to delete activity: ' + error.message, 'error');
+            const status = activity.status;
+            const originalCardHTML = card.innerHTML;
+            const originalParent = card.parentElement;
+
+            // Optimistically remove the card
+            card.remove();
+
+            // Optimistically update overall performance counters
+            if (overallPerformance[status] !== undefined) {
+                overallPerformance[status]--;
+                updateOverallPerformanceUI();
+            }
+
+            try {
+                await deleteActivity(currentUserId, activity);
+                showNotification('Activity deleted successfully!');
+            } catch (error) {
+                showNotification('Failed to delete activity: ' + error.message, 'error');
+                // Revert the UI on failure
+                originalParent.appendChild(card);
+                card.innerHTML = originalCardHTML;
+                // Revert the overall performance counter
+                if (overallPerformance[status] !== undefined) {
+                    overallPerformance[status]++;
+                    updateOverallPerformanceUI();
                 }
             }
             return;
         }
-        
     });
 
+    // Delegated event listener for ongoing tasks list
+    ongoingTasksContent.addEventListener('click', async (e) => {
+        const dropdownButton = e.target.closest('.status-dropdown-button');
+        if (dropdownButton) {
+            e.preventDefault();
+            e.stopPropagation();
+            const parentDropdown = dropdownButton.parentElement;
+
+            document.querySelectorAll('.status-dropdown.show').forEach(dropdown => {
+                if (dropdown !== parentDropdown) {
+                    dropdown.classList.remove('show');
+                }
+            });
+
+            parentDropdown.classList.toggle('show');
+            return;
+        }
+
+        const newStatusButton = e.target.closest('.status-dropdown-menu button');
+        if (newStatusButton) {
+            e.preventDefault();
+            e.stopPropagation();
+            const newStatus = newStatusButton.dataset.status;
+            const card = e.target.closest('.daily-report-card');
+            const activity = JSON.parse(card.dataset.activity);
+            const oldStatus = activity.status;
+            const originalCardHTML = card.innerHTML;
+            const originalParent = card.parentElement;
+
+            if (currentUserId && activity && newStatus) {
+                // Optimistically update overall performance counters
+                if (overallPerformance[oldStatus] !== undefined) overallPerformance[oldStatus]--;
+                if (overallPerformance[newStatus] !== undefined) overallPerformance[newStatus]++;
+                updateOverallPerformanceUI();
+
+                // Optimistically update the UI
+                card.remove();
+
+                try {
+                    const todayDate = formatDate(new Date()); // Get today's date
+                    await updateActivityStatus(currentUserId, activity, newStatus, todayDate);
+                    showNotification(`Activity status updated to "${statusOptions[newStatus].text}"`);
+                } catch (error) {
+                    showNotification('Failed to update activity status: ' + error.message, 'error');
+                    // Revert UI on failure
+                    originalParent.appendChild(card);
+                    card.innerHTML = originalCardHTML;
+                    // Revert the overall performance counters
+                    if (overallPerformance[oldStatus] !== undefined) overallPerformance[oldStatus]++;
+                    if (overallPerformance[newStatus] !== undefined) overallPerformance[newStatus]--;
+                    updateOverallPerformanceUI();
+                }
+            }
+            const dropdownElement = document.querySelector('.status-dropdown.show');
+            if (dropdownElement) {
+                dropdownElement.classList.remove('show');
+            }
+            return;
+        }
+
+        const deleteBtn = e.target.closest('.delete-btn');
+        if (deleteBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const card = e.target.closest('.daily-report-card');
+            const activity = JSON.parse(card.dataset.activity);
+            const status = activity.status;
+            const originalCardHTML = card.innerHTML;
+            const originalParent = card.parentElement;
+
+            // Optimistically remove the card
+            card.remove();
+
+            // Optimistically update overall performance counters
+            if (overallPerformance[status] !== undefined) {
+                overallPerformance[status]--;
+                updateOverallPerformanceUI();
+            }
+
+            try {
+                await deleteActivity(currentUserId, activity);
+                showNotification('Activity deleted successfully!');
+            } catch (error) {
+                showNotification('Failed to delete activity: ' + error.message, 'error');
+                // Revert UI on failure
+                originalParent.appendChild(card);
+                card.innerHTML = originalCardHTML;
+                // Revert the overall performance counter
+                if (overallPerformance[status] !== undefined) {
+                    overallPerformance[status]++;
+                    updateOverallPerformanceUI();
+                }
+            }
+            return;
+        }
+    });
 
     document.addEventListener('click', (e) => {
         const isClickInsideDropdown = e.target.closest('.status-dropdown');
@@ -727,6 +885,5 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
-    
-    
+
 });
