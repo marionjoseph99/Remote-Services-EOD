@@ -1,6 +1,7 @@
 /*
  * File: style.css
  */
+ @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;700&display=swap');
 :root {
     --primary-color: #4a55a2; /* A deep, rich indigo blue */
     --secondary-color: #7b848c; /* A neutral gray */
@@ -19,12 +20,18 @@
     --not-started-bg: #e3f2fd; /* Light pastel blue */
     --not-started-text: #1976d2; /* Darker blue */
     --cancelled-bg: #fbe9e7; /* Light pastel red */
-    --cancelled-text: #d32f2f; /* Darker red */
+    --cancelled-text: #c0392b; /* Darker red */
+
+    --not-started-dp: #4092e4;
+    --done-dp: #2ba033;
+    --wip-dp:#f8cd60;
+    --cancelled-dp: #fd6959;
+    
 }
 
 /* Base styles for a mobile-first approach */
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: 'Lexend', sans-serif;
     background-color: var(--background-color);
     margin: 0;
     padding: 1rem;
@@ -76,14 +83,19 @@ body {
     font-size: 0.95rem;
 }
 .user-info p strong {
-    color: var(--text-color);
+    color: var(--primary-color);
     font-weight: 600;
 }
 
 .performance-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 1.25rem;
+    gap: 0.7rem;
+}
+.performance-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.7rem;
 }
 
 .metric {
@@ -104,7 +116,7 @@ body {
     margin: 0;
     font-size: 0.9rem;
     font-weight: 500;
-    color: var(--secondary-color);
+    color: var(--primary-color);
 }
 
 .metric .value {
@@ -142,7 +154,7 @@ body {
 }
 
 .card-actions button {
-    background-color: rgba(255, 255, 255, 0.9);
+    background-color: #4a55a2;
     border: none;
     border-radius: 50%;
     width: 32px;
@@ -155,9 +167,17 @@ body {
     padding: 0;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
     transition: background-color 0.2s, transform 0.2s;
+    color: #fff;
 }
+
+i {
+    color: #fff;
+}
+
+
 .card-actions button:hover {
-    background-color: #f0f0f0;
+    background-color: #2c347b;
+    color: #fff;
     transform: scale(1.1);
 }
 
@@ -214,10 +234,9 @@ body {
 
 
 #date-display {
-
     padding: 0.6rem 1.2rem;
     border: none;
-    border-radius: 25px;
+    border-radius: 12px;
     font-size: 0.95rem;
     color: #fff;
     background-color: #4a55a2;
@@ -311,12 +330,12 @@ body {
 }
 
 .calendar-grid .day.today {
-    background-color: var(--primary-color);
+    background-color: #c0392b;
     color: #fff;
 }
 
 .calendar-grid .day.selected {
-    background-color: var(--primary-color);
+    background-color: #4a55a2;
     color: #fff;
     font-weight: 600;
 }
@@ -329,13 +348,14 @@ body {
     transform: translateX(-50%);
     width: 5px;
     height: 5px;
-    background-color: var(--done-text);
+    background-color: #c0392b;
     border-radius: 50%;
 }
 
 
 .calendar-grid .day:hover {
-    background-color: #4a54a2b9;
+    background-color: #4a54a286;
+    color: #fff;
 }
 
 .day.today {
@@ -356,18 +376,18 @@ body {
     border-radius: 50%;
 }
 
-.logout-btn, .notes-btn {
+.logout-btn {
     padding: 0.6rem 1.25rem;
     font-size: 0.95rem;
     background-color: var(--primary-color);
     color: white;
     border: none;
-    border-radius: 25px;
+    border-radius: 12px;
     cursor: pointer;
     transition: background-color 0.2s, transform 0.2s;
     font-weight: 600;
 }
-.logout-btn:hover, .notes-btn:hover {
+.logout-btn:hover {
     background-color: #2c347b;
     transform: scale(1.02);
 }
@@ -387,7 +407,7 @@ body {
 .ongoing-tasks-content, #daily-activities {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 1rem;
+    gap: .7rem;
     list-style: none;
     padding: 0;
     margin: 0;
@@ -405,7 +425,6 @@ body {
     gap: 0.4rem;
     transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
-
 .daily-report-card:hover, .task-item:hover {
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
     z-index: 10;
@@ -421,6 +440,8 @@ body {
     flex-direction: column;
     gap: 0.25rem;
     width: 100%;
+    overflow: hidden;
+    flex-grow: 1;
 }
 
 .daily-report-card .card-metadata, .daily-report-card .timestamp,
@@ -429,13 +450,37 @@ body {
 }
 
 .daily-report-card .activity-text, .task-item .activity-text {
-    color: var(--text-color);
+    color: #2c347b;
     font-size: 0.9rem;
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-left: 10px;
+    margin-left: 5px;
+}
+
+.activity-description {
+    color: #2c347b;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-left: 5px;
+}
+.daily-report-card .edit-input, .task-item .edit-input, .edit-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-color);
+    background-color: var(--card-bg-color);
+}
+.daily-report-card .edit-input:focus, .task-item .edit-input:focus, .edit-textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
 }
 
 .daily-report-card .controls, .task-item .controls {
@@ -445,9 +490,13 @@ body {
     width: 100%;
     margin-top: 0.5rem;
 }
+.daily-report-card .card-buttons, .task-item .card-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
 
 .daily-report-card .delete-btn, .task-item .delete-btn {
-    background-color: #e74c3c;
+    background-color: var(--cancelled-dp);
     color: #fff;
     border: none;
     width: 30px;
@@ -462,6 +511,25 @@ body {
 }
 .daily-report-card .delete-btn:hover, .task-item .delete-btn:hover {
     background-color: #c0392b;
+    transform: scale(1.1);
+}
+
+.daily-report-card .edit-btn, .task-item .edit-btn {
+    background-color: var(--primary-color);
+    color: #fff;
+    border: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.7rem;
+    transition: background-color 0.2s, transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.daily-report-card .edit-btn:hover, .task-item .edit-btn:hover {
+    background-color: #2c347b;
     transform: scale(1.1);
 }
 
@@ -481,6 +549,8 @@ body {
     display: flex;
     align-items: center;
     gap: 0.3rem;
+    color: #fff;
+    margin-left: 4px;
 }
 .status-dropdown-button .status-icon {
     font-size: 0.6rem;
@@ -495,7 +565,7 @@ body {
     background-color: var(--card-bg-color);
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    z-index: 10000;
+    z-index: 100;
     min-width: 150px;
     padding: 0.5rem;
     flex-direction: column;
@@ -546,8 +616,6 @@ body {
     display: none;
     position: fixed;
     z-index: 1000;
-    left: 0;
-    top: 0;
     width: 100%;
     height: 100%;
     overflow: auto;
@@ -561,11 +629,11 @@ body {
 
 .modal-content {
     background-color: var(--card-bg-color);
-    padding: 2rem;
+    padding: 1.5rem;
     border-radius: 16px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
     width: 100%;
-    max-width: 450px;
+    max-width: 380px;
     text-align: center;
     animation: fadeIn 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
@@ -588,11 +656,11 @@ body {
     font-weight: 700;
 }
 
-.modal-content input {
+.modal-content input, #activity-description-input {
     width: 100%;
     padding: 0.8rem;
     margin-top: 1rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.0rem;
     border: 1px solid var(--border-color);
     border-radius: 12px;
     font-size: 1rem;
@@ -773,6 +841,10 @@ body {
     cursor: pointer;
 }
 
+.chevron-icon {
+  color: #2c347b;
+}
+
 
 .ongoing-tasks-content {
     display: grid;
@@ -826,13 +898,14 @@ body {
 .collapse-toggle {
     background: none;
     border: none;
-    color: var(--primary-color);
+    color: #2c347b;
     cursor: pointer;
     transition: transform 0.3s ease;
 }
 
 .collapse-toggle.collapsed {
     transform: rotate(-90deg);
+    color: #2c347b;
 }
 
 .no-tasks {
@@ -840,4 +913,183 @@ body {
     color: var(--light-text-color);
     font-style: italic;
     padding: 1rem 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/* Floating Button Container for positioning */
+
+.floating-btn-container {
+    position: fixed;
+    bottom: 1.25rem; /* Use rem for better scalability */
+    right: 1.25rem;
+    z-index: 1000;
+}
+
+/* Floating Button */
+.floating-btn {
+    background-color: #2c347b;
+    color: white;
+    border: none;
+    border-radius: 9999px; /* This creates a pill-shaped button */
+    padding: 0.75rem 1.5rem; /* Adjust padding for text */
+    width: auto; /* Remove fixed width */
+    height: auto; /* Remove fixed height */
+    font-size: 1rem;
+    font-weight: 600; /* Add font-weight for better readability */
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background-color 0.3s, transform 0.3s;
+}
+
+.floating-btn:hover {
+    transform: scale(1.05); /* Slightly adjust the hover effect */
+    background-color: #3f4c9c;
+}
+
+/* Modal Styles */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5); /* Slightly darker overlay */
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+}
+
+.chatbot-modal {
+    background-color: white;
+    border-radius: 1rem; /* Use rem */
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    width: 100%; /* Make it more responsive */
+    max-width: 22rem; /* Use rem */
+    max-height: 80vh; /* Better for smaller screens */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: fixed;
+    bottom: 5rem; /* Adjust position */
+    right: 1.25rem;
+    z-index: 1001;
+    animation: fadeIn 0.3s ease-out forwards; /* Add forwards to keep the final state */
+}
+
+.chatbot-header {
+    background-color: #4a55a2;
+    color: white;
+    padding: .1rem 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+    border-top-left-radius: 1rem;
+    border-top-right-radius: 1rem;
+}
+
+.modal-close-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    line-height: 1; /* Aligns the X properly */
+}
+
+.chatbot-messages {
+    font-size: .85rem;
+    padding: 0.8rem 1rem;
+    overflow-y: auto;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem; /* Use rem */
+}
+
+.bot-message {
+    background-color: #eef1f6; /* A slightly more modern, softer color */
+    color: #333;
+    padding: 0.4rem 1rem;
+    border-radius: 12px;
+    max-width: 100%;
+    align-self: flex-start;
+    animation: messageIn 0.3s ease-out;
+}
+
+/* New CSS for the modal's active state */
+.modal-overlay.active {
+    display: flex;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(1rem); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes messageIn {
+    from { opacity: 0; transform: translateY(1rem); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ... (existing floating button and modal styles) ... */
+
+/* Button container styles */
+.version-btn {
+    display: flex;
+    width: 100%;
+    min-width: 150px;
+    flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
+    padding: .5rem 1rem;
+    gap: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 1rem;
+}
+
+.vbtn {
+    padding: 0.6rem 1.25rem;
+    font-size: 0.85rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+    font-weight: 600;
+}
+
+/* Use a different background for inactive buttons */
+.vbtn:not(.active) {
+    background-color: #e2e8f0;
+    color: var(--primary-color);
+}
+
+.vbtn:hover:not(.active) {
+    background-color: #d1d8e0;
+    transform: scale(1.02);
+}
+
+.vbtn.active {
+    background-color: var(--primary-color);
+    color: white;
+    transform: scale(1.02);
+}
+
+/* Define a CSS variable for the primary color for reusability */
+:root {
+    --primary-color: #4a55a2;
 }
