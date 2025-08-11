@@ -13,6 +13,7 @@ import {
     deleteActivity,
     setupDailyActivitiesListener,
     setupOngoingTasksListener,
+    updateActivityContent,
     db
 } from './auth.js';
 import {
@@ -52,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const addActivityModal = document.getElementById('add-activity-modal');
     const activityInput = document.getElementById('activity-input');
+    const activityDescriptionInput = document.getElementById('activity-description-input');
     const addActivityBtn = document.getElementById('add-activity-btn');
     const plusButtons = document.querySelectorAll('.metric .plus-btn');
 
@@ -83,7 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'not-started': 0,
         cancelled: 0,
     };
-    let dailyPerformance = {};
     let selectedDate = new Date();
     let currentCalendarDate = new Date();
     let currentUserId = null;
@@ -93,27 +94,31 @@ document.addEventListener('DOMContentLoaded', () => {
     let unsubscribeDaily = null;
     let unsubscribeOngoing = null;
 
+    // New variables to hold the data from the listeners
+    let dailyActivitiesData = [];
+    let ongoingTasksData = [];
+
     let authMode = 'login';
     const statusOptions = {
         'not-started': {
             text: 'Not Started',
             class: 'not-started',
-            dotColor: 'var(--not-started-text)'
+            dotColor: 'var(--not-started-dp)'
         },
         'wip': {
             text: 'Work in Progress',
             class: 'wip',
-            dotColor: 'var(--wip-text)'
+            dotColor: 'var(--wip-dp)'
         },
         'done': {
             text: 'Done',
             class: 'done',
-            dotColor: 'var(--done-text)'
+            dotColor: 'var(--done-dp)'
         },
         'cancelled': {
             text: 'Cancelled',
             class: 'cancelled',
-            dotColor: 'var(--cancelled-text)'
+            dotColor: 'var(--cancelled-dp)'
         }
     };
 
@@ -134,26 +139,25 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${year}-${month}-${day}`;
     }
 
-    function calculateTodayPerformance(dailyActivities, ongoingTasks) {
+    /**
+     * Calculates and updates the "Today's Summary" based on the latest data.
+     */
+    function refreshPerformanceSummary() {
         if (!currentUserId) return;
 
         let doneCount = 0;
         let cancelledCount = 0;
-        if (dailyActivities) {
-            dailyActivities.forEach(activity => {
-                if (activity.status === 'done') doneCount++;
-                if (activity.status === 'cancelled') cancelledCount++;
-            });
-        }
+        dailyActivitiesData.forEach(activity => {
+            if (activity.status === 'done') doneCount++;
+            if (activity.status === 'cancelled') cancelledCount++;
+        });
 
         let wipCount = 0;
         let notStartedCount = 0;
-        if (ongoingTasks) {
-            ongoingTasks.forEach(task => {
-                if (task.status === 'wip') wipCount++;
-                if (task.status === 'not-started') notStartedCount++;
-            });
-        }
+        ongoingTasksData.forEach(task => {
+            if (task.status === 'wip') wipCount++;
+            if (task.status === 'not-started') notStartedCount++;
+        });
 
         todayPerformanceValues.done.textContent = doneCount;
         todayPerformanceValues.wip.textContent = wipCount;
@@ -178,41 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         ongoingTasks.forEach(task => {
-            const taskEl = document.createElement('div');
-            taskEl.className = `daily-report-card ${task.status}`;
-            taskEl.dataset.activityId = task.id;
-            taskEl.dataset.activity = JSON.stringify(task);
-            taskEl.dataset.date = task.creationDate;
-
-            const currentStatus = statusOptions[task.status] || statusOptions['not-started'];
-            const dropdownHtml = `
-                <div class="status-dropdown">
-                    <button class="status-dropdown-button">
-                        ${currentStatus.text}
-                        <i class="fas fa-chevron-down"></i>
-                    </button>
-                    <div class="status-dropdown-menu">
-                        ${Object.keys(statusOptions).map(status => `
-                            <button data-status="${status}">
-                                <span class="status-dot" style="background-color: ${statusOptions[status].dotColor};"></span>
-                                ${statusOptions[status].text}
-                            </button>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-
-            taskEl.innerHTML = `
-                <div class="activity-text-container">
-                    <span class="activity-text">${task.text}</span>
-                    <span class="timestamp">Created on: ${task.creationDate}</span>
-                </div>
-                <div class="controls">
-                    ${dropdownHtml}
-                    <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
-                </div>
-            `;
-            container.appendChild(taskEl);
+            const card = createActivityCard(task);
+            container.appendChild(card);
         });
     }
 
@@ -233,38 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return timeA - timeB;
             });
             sortedActivities.forEach(activity => {
-                const card = document.createElement('div');
-                card.className = `daily-report-card ${activity.status}`;
-                card.dataset.activityId = activity.id;
-                card.dataset.activity = JSON.stringify(activity);
-                card.dataset.date = activity.completionDate; // Use completionDate from activity
-                const currentStatus = statusOptions[activity.status] || statusOptions['not-started'];
-                const dropdownHtml = `
-                    <div class="status-dropdown">
-                        <button class="status-dropdown-button">
-                            ${currentStatus.text}
-                            <i class="fas fa-chevron-down"></i>
-                        </button>
-                        <div class="status-dropdown-menu">
-                            ${Object.keys(statusOptions).map(status => `
-                                <button data-status="${status}">
-                                    <span class="status-dot" style="background-color: ${statusOptions[status].dotColor};"></span>
-                                    ${statusOptions[status].text}
-                                </button>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-                card.innerHTML = `
-                    <div class="activity-text-container">
-                        <span class="activity-text">${activity.text}</span>
-                        <span class="timestamp">${activity.timestamp}</span>
-                    </div>
-                    <div class="controls">
-                        ${dropdownHtml}
-                        <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
-                    </div>
-                `;
+                const card = createActivityCard(activity);
                 dailyActivitiesList.appendChild(card);
             });
         } else {
@@ -323,6 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function closeActivityModal() {
         addActivityModal.style.display = 'none';
         activityInput.value = '';
+        activityDescriptionInput.value = '';
     }
 
     function updateOverallPerformanceUI() {
@@ -337,6 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // New function to handle optimistic UI update for adding a task
     async function addNewActivity() {
         const activityText = activityInput.value.trim();
+        const activityDescription = activityDescriptionInput.value.trim();
         const activityStatus = modalStatus;
         const formattedDate = formatDate(selectedDate); // Corrected to use selectedDate
 
@@ -350,6 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const newActivity = {
                 id: Date.now(),
                 text: activityText,
+                description: activityDescription,
                 status: activityStatus,
                 timestamp: timestamp,
             };
@@ -411,10 +354,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Set up a new real-time listener for the selected date
         unsubscribeDaily = setupDailyActivitiesListener(userId, formattedDate, (activities) => {
+            dailyActivitiesData = activities;
             renderDailyActivities(activities);
-            // We also need to recalculate today's performance when the date changes
-            const ongoingTasks = document.querySelectorAll('.ongoing-tasks-content .daily-report-card');
-            calculateTodayPerformance(activities, ongoingTasks);
+            // Recalculate today's performance when the daily data changes
+            refreshPerformanceSummary();
         });
 
         try {
@@ -436,46 +379,50 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Creates an activity card element.
-     * @param {object} activity - The activity object.
-     * @returns {HTMLElement} The created card element.
-     */
-    function createActivityCard(activity) {
-        const card = document.createElement('div');
-        card.className = `daily-report-card ${activity.status}`;
-        card.dataset.activityId = activity.id;
-        card.dataset.activity = JSON.stringify(activity);
-        card.dataset.date = activity.creationDate || activity.completionDate;
-        const currentStatus = statusOptions[activity.status] || statusOptions['not-started'];
-        const dropdownHtml = `
-            <div class="status-dropdown">
-                <button class="status-dropdown-button">
-                    ${currentStatus.text}
-                    <i class="fas fa-chevron-down"></i>
-                </button>
-                <div class="status-dropdown-menu">
-                    ${Object.keys(statusOptions).map(status => `
-                        <button data-status="${status}">
-                            <span class="status-dot" style="background-color: ${statusOptions[status].dotColor};"></span>
-                            ${statusOptions[status].text}
-                        </button>
-                    `).join('')}
-                </div>
+ * Creates an activity card element.
+ * @param {object} activity - The activity object.
+ * @returns {HTMLElement} The created card element.
+ */
+function createActivityCard(activity) {
+    const card = document.createElement('div');
+    card.className = `daily-report-card ${activity.status}`;
+    card.dataset.activityId = activity.id;
+    card.dataset.activity = JSON.stringify(activity);
+    card.dataset.date = activity.creationDate || activity.completionDate;
+    const currentStatus = statusOptions[activity.status] || statusOptions['not-started'];
+    const dropdownHtml = `
+        <div class="status-dropdown">
+            <button class="status-dropdown-button" style="background-color: ${currentStatus.dotColor};">
+                ${currentStatus.text}
+                <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="status-dropdown-menu">
+                ${Object.keys(statusOptions).map(status => `
+                    <button data-status="${status}">
+                        <span class="status-dot" style="background-color: ${statusOptions[status].dotColor};"></span>
+                        ${statusOptions[status].text}
+                    </button>
+                `).join('')}
             </div>
-        `;
-        const dateDisplay = activity.creationDate ? `Created on: ${activity.creationDate}` : `Completed on: ${activity.completionDate}`;
-        card.innerHTML = `
-            <div class="activity-text-container">
-                <span class="activity-text">${activity.text}</span>
-                <span class="timestamp">${dateDisplay}</span>
-            </div>
-            <div class="controls">
-                ${dropdownHtml}
+        </div>
+    `;
+    const dateDisplay = activity.creationDate ? `Created on: ${activity.creationDate}` : `Completed on: ${activity.completionDate}`;
+    card.innerHTML = `
+        <div class="activity-text-container">
+            <span class="activity-text">${activity.text}</span>
+            <span class="activity-description">${activity.description || ''}</span>
+            <span class="timestamp">${dateDisplay}</span>
+        </div>
+        <div class="controls">
+            ${dropdownHtml}
+            <div class="card-buttons">
+                <button class="edit-btn"><i class="fas fa-edit"></i></button>
                 <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
             </div>
-        `;
-        return card;
-    }
+        </div>
+    `;
+    return card;
+}
 
 
     function showAuthForm(mode) {
@@ -523,10 +470,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Set up the ongoing tasks listener which is not date-specific
         unsubscribeOngoing = setupOngoingTasksListener(currentUserId, (tasks) => {
+            ongoingTasksData = tasks;
             renderOngoingTasks(tasks);
-            // This is now the source of truth, so we use it to calculate today's performance
-            const dailyActivities = document.querySelectorAll('.daily-reports .daily-report-card');
-            calculateTodayPerformance(dailyActivities, tasks);
+            // Recalculate today's performance when the ongoing data changes
+            refreshPerformanceSummary();
         });
 
         const userData = await getAllUserDataFromFirestore(user.uid);
@@ -743,6 +690,136 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const editBtn = e.target.closest('.edit-btn');
+        if (editBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const card = e.target.closest('.daily-report-card');
+            const activity = JSON.parse(card.dataset.activity);
+            const activityTextElement = card.querySelector('.activity-text');
+            const activityDescriptionElement = card.querySelector('.activity-description');
+            const editIcon = editBtn.querySelector('i');
+
+            if (editIcon.classList.contains('fa-edit')) {
+                // Enter edit mode
+                const currentText = activityTextElement.textContent;
+                const currentDescription = activityDescriptionElement.textContent;
+
+                const textInputElement = document.createElement('input');
+                textInputElement.type = 'text';
+                textInputElement.value = currentText;
+                textInputElement.className = 'edit-input';
+
+                const descriptionInputElement = document.createElement('textarea');
+                descriptionInputElement.value = currentDescription;
+                descriptionInputElement.className = 'edit-textarea';
+
+                activityTextElement.replaceWith(textInputElement);
+                activityDescriptionElement.replaceWith(descriptionInputElement);
+
+                textInputElement.focus();
+                editIcon.classList.remove('fa-edit');
+                editIcon.classList.add('fa-save');
+                editBtn.style.backgroundColor = 'var(--done-text)';
+                editBtn.dataset.editing = 'true';
+
+                // Handle saving on Enter key press on the text input
+                textInputElement.addEventListener('keydown', async (keyEvent) => {
+                    if (keyEvent.key === 'Enter') {
+                        keyEvent.preventDefault();
+                        descriptionInputElement.focus();
+                    }
+                });
+
+                // Handle saving on Ctrl+Enter key press on the description textarea
+                descriptionInputElement.addEventListener('keydown', async (keyEvent) => {
+                    if (keyEvent.ctrlKey && keyEvent.key === 'Enter') {
+                        keyEvent.preventDefault();
+                        const newText = textInputElement.value;
+                        const newDescription = descriptionInputElement.value;
+                        if (newText.trim() === '') {
+                            showNotification('Activity text cannot be empty.', 'error');
+                            return;
+                        }
+
+                        try {
+                            await updateActivityContent(currentUserId, activity.id, 'dailyReports', newText, newDescription);
+                            showNotification('Activity updated successfully!');
+                            const newTextElement = document.createElement('span');
+                            newTextElement.className = 'activity-text';
+                            newTextElement.textContent = newText;
+                            const newDescriptionElement = document.createElement('span');
+                            newDescriptionElement.className = 'activity-description';
+                            newDescriptionElement.textContent = newDescription;
+                            textInputElement.replaceWith(newTextElement);
+                            descriptionInputElement.replaceWith(newDescriptionElement);
+                            editIcon.classList.remove('fa-save');
+                            editIcon.classList.add('fa-edit');
+                            editBtn.style.backgroundColor = 'var(--primary-color)';
+                            editBtn.dataset.editing = 'false';
+                        } catch (error) {
+                            showNotification('Failed to update activity: ' + error.message, 'error');
+                            // Revert on failure
+                            const newTextElement = document.createElement('span');
+                            newTextElement.className = 'activity-text';
+                            newTextElement.textContent = currentText;
+                            const newDescriptionElement = document.createElement('span');
+                            newDescriptionElement.className = 'activity-description';
+                            newDescriptionElement.textContent = currentDescription;
+                            textInputElement.replaceWith(newTextElement);
+                            descriptionInputElement.replaceWith(newDescriptionElement);
+                            editIcon.classList.remove('fa-save');
+                            editIcon.classList.add('fa-edit');
+                            editBtn.style.backgroundColor = 'var(--primary-color)';
+                            editBtn.dataset.editing = 'false';
+                        }
+                    }
+                });
+            } else {
+                // Exit edit mode and save
+                const textInputElement = card.querySelector('.edit-input');
+                const descriptionInputElement = card.querySelector('.edit-textarea');
+                const newText = textInputElement.value;
+                const newDescription = descriptionInputElement.value;
+
+                if (newText.trim() === '') {
+                    showNotification('Activity text cannot be empty.', 'error');
+                    return;
+                }
+
+                try {
+                    await updateActivityContent(currentUserId, activity.id, 'dailyReports', newText, newDescription);
+                    showNotification('Activity updated successfully!');
+                    const newTextElement = document.createElement('span');
+                    newTextElement.className = 'activity-text';
+                    newTextElement.textContent = newText;
+                    const newDescriptionElement = document.createElement('span');
+                    newDescriptionElement.className = 'activity-description';
+                    newDescriptionElement.textContent = newDescription;
+                    textInputElement.replaceWith(newTextElement);
+                    descriptionInputElement.replaceWith(newDescriptionElement);
+                    editIcon.classList.remove('fa-save');
+                    editIcon.classList.add('fa-edit');
+                    editBtn.style.backgroundColor = 'var(--primary-color)';
+                } catch (error) {
+                    showNotification('Failed to update activity: ' + error.message, 'error');
+                    // Revert on failure
+                    const newTextElement = document.createElement('span');
+                    newTextElement.className = 'activity-text';
+                    newTextElement.textContent = activity.text; // Revert to original text
+                    const newDescriptionElement = document.createElement('span');
+                    newDescriptionElement.className = 'activity-description';
+                    newDescriptionElement.textContent = activity.description;
+                    textInputElement.replaceWith(newTextElement);
+                    descriptionInputElement.replaceWith(newDescriptionElement);
+                    editIcon.classList.remove('fa-save');
+                    editIcon.classList.add('fa-edit');
+                    editBtn.style.backgroundColor = 'var(--primary-color)';
+                }
+            }
+            return;
+        }
+
         const deleteBtn = e.target.closest('.delete-btn');
         if (deleteBtn) {
             e.preventDefault();
@@ -840,6 +917,136 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const editBtn = e.target.closest('.edit-btn');
+        if (editBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const card = e.target.closest('.daily-report-card');
+            const activity = JSON.parse(card.dataset.activity);
+            const activityTextElement = card.querySelector('.activity-text');
+            const activityDescriptionElement = card.querySelector('.activity-description');
+            const editIcon = editBtn.querySelector('i');
+
+            if (editIcon.classList.contains('fa-edit')) {
+                // Enter edit mode
+                const currentText = activityTextElement.textContent;
+                const currentDescription = activityDescriptionElement.textContent;
+
+                const textInputElement = document.createElement('input');
+                textInputElement.type = 'text';
+                textInputElement.value = currentText;
+                textInputElement.className = 'edit-input';
+
+                const descriptionInputElement = document.createElement('textarea');
+                descriptionInputElement.value = currentDescription;
+                descriptionInputElement.className = 'edit-textarea';
+
+                activityTextElement.replaceWith(textInputElement);
+                activityDescriptionElement.replaceWith(descriptionInputElement);
+
+                textInputElement.focus();
+                editIcon.classList.remove('fa-edit');
+                editIcon.classList.add('fa-save');
+                editBtn.style.backgroundColor = 'var(--done-text)';
+                editBtn.dataset.editing = 'true';
+
+                // Handle saving on Enter key press on the text input
+                textInputElement.addEventListener('keydown', async (keyEvent) => {
+                    if (keyEvent.key === 'Enter') {
+                        keyEvent.preventDefault();
+                        descriptionInputElement.focus();
+                    }
+                });
+
+                // Handle saving on Ctrl+Enter key press on the description textarea
+                descriptionInputElement.addEventListener('keydown', async (keyEvent) => {
+                    if (keyEvent.ctrlKey && keyEvent.key === 'Enter') {
+                        keyEvent.preventDefault();
+                        const newText = textInputElement.value;
+                        const newDescription = descriptionInputElement.value;
+                        if (newText.trim() === '') {
+                            showNotification('Activity text cannot be empty.', 'error');
+                            return;
+                        }
+
+                        try {
+                            await updateActivityContent(currentUserId, activity.id, 'ongoingTasks', newText, newDescription);
+                            showNotification('Activity updated successfully!');
+                            const newTextElement = document.createElement('span');
+                            newTextElement.className = 'activity-text';
+                            newTextElement.textContent = newText;
+                            const newDescriptionElement = document.createElement('span');
+                            newDescriptionElement.className = 'activity-description';
+                            newDescriptionElement.textContent = newDescription;
+                            textInputElement.replaceWith(newTextElement);
+                            descriptionInputElement.replaceWith(newDescriptionElement);
+                            editIcon.classList.remove('fa-save');
+                            editIcon.classList.add('fa-edit');
+                            editBtn.style.backgroundColor = 'var(--primary-color)';
+                            editBtn.dataset.editing = 'false';
+                        } catch (error) {
+                            showNotification('Failed to update activity: ' + error.message, 'error');
+                            // Revert on failure
+                            const newTextElement = document.createElement('span');
+                            newTextElement.className = 'activity-text';
+                            newTextElement.textContent = currentText;
+                            const newDescriptionElement = document.createElement('span');
+                            newDescriptionElement.className = 'activity-description';
+                            newDescriptionElement.textContent = currentDescription;
+                            textInputElement.replaceWith(newTextElement);
+                            descriptionInputElement.replaceWith(newDescriptionElement);
+                            editIcon.classList.remove('fa-save');
+                            editIcon.classList.add('fa-edit');
+                            editBtn.style.backgroundColor = 'var(--primary-color)';
+                            editBtn.dataset.editing = 'false';
+                        }
+                    }
+                });
+            } else {
+                // Exit edit mode and save
+                const textInputElement = card.querySelector('.edit-input');
+                const descriptionInputElement = card.querySelector('.edit-textarea');
+                const newText = textInputElement.value;
+                const newDescription = descriptionInputElement.value;
+
+                if (newText.trim() === '') {
+                    showNotification('Activity text cannot be empty.', 'error');
+                    return;
+                }
+
+                try {
+                    await updateActivityContent(currentUserId, activity.id, 'ongoingTasks', newText, newDescription);
+                    showNotification('Activity updated successfully!');
+                    const newTextElement = document.createElement('span');
+                    newTextElement.className = 'activity-text';
+                    newTextElement.textContent = newText;
+                    const newDescriptionElement = document.createElement('span');
+                    newDescriptionElement.className = 'activity-description';
+                    newDescriptionElement.textContent = newDescription;
+                    textInputElement.replaceWith(newTextElement);
+                    descriptionInputElement.replaceWith(newDescriptionElement);
+                    editIcon.classList.remove('fa-save');
+                    editIcon.classList.add('fa-edit');
+                    editBtn.style.backgroundColor = 'var(--primary-color)';
+                } catch (error) {
+                    showNotification('Failed to update activity: ' + error.message, 'error');
+                    // Revert on failure
+                    const newTextElement = document.createElement('span');
+                    newTextElement.className = 'activity-text';
+                    newTextElement.textContent = activity.text; // Revert to original text
+                    const newDescriptionElement = document.createElement('span');
+                    newDescriptionElement.className = 'activity-description';
+                    newDescriptionElement.textContent = activity.description;
+                    textInputElement.replaceWith(newTextElement);
+                    descriptionInputElement.replaceWith(newDescriptionElement);
+                    editIcon.classList.remove('fa-save');
+                    editIcon.classList.add('fa-edit');
+                    editBtn.style.backgroundColor = 'var(--primary-color)';
+                }
+            }
+            return;
+        }
+
         const deleteBtn = e.target.closest('.delete-btn');
         if (deleteBtn) {
             e.preventDefault();
@@ -879,11 +1086,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('click', (e) => {
         const isClickInsideDropdown = e.target.closest('.status-dropdown');
-        if (!isClickInsideDropdown) {
+        const isClickInsideEditButton = e.target.closest('.edit-btn');
+        const isClickInsideEditingInput = e.target.closest('.edit-input') || e.target.closest('.edit-textarea');
+        if (!isClickInsideDropdown && !isClickInsideEditButton && !isClickInsideEditingInput) {
             document.querySelectorAll('.status-dropdown.show').forEach(dropdown => {
                 dropdown.classList.remove('show');
             });
+
+            // Revert any active edit modes
+            document.querySelectorAll('.edit-btn[data-editing="true"]').forEach(async editBtn => {
+                const card = editBtn.closest('.daily-report-card');
+                const activity = JSON.parse(card.dataset.activity);
+                const textInputElement = card.querySelector('.edit-input');
+                const descriptionInputElement = card.querySelector('.edit-textarea');
+                const editIcon = editBtn.querySelector('i');
+                const collectionName = (activity.status === 'done' || activity.status === 'cancelled') ? 'dailyReports' : 'ongoingTasks';
+
+                if (textInputElement && descriptionInputElement) {
+                    const newText = textInputElement.value;
+                    const newDescription = descriptionInputElement.value;
+
+                    if (newText && newText.trim() !== '') {
+                        if (newText !== activity.text || newDescription !== activity.description) {
+                            try {
+                                await updateActivityContent(currentUserId, activity.id, collectionName, newText, newDescription);
+                                showNotification('Activity updated successfully!');
+                            } catch (error) {
+                                showNotification('Failed to update activity: ' + error.message, 'error');
+                                // Revert the text in the input field on failure
+                                textInputElement.value = activity.text;
+                                descriptionInputElement.value = activity.description;
+                            }
+                        }
+                    }
+
+                    const newTextElement = document.createElement('span');
+                    newTextElement.className = 'activity-text';
+                    newTextElement.textContent = textInputElement.value;
+                    const newDescriptionElement = document.createElement('span');
+                    newDescriptionElement.className = 'activity-description';
+                    newDescriptionElement.textContent = descriptionInputElement.value;
+
+                    textInputElement.replaceWith(newTextElement);
+                    descriptionInputElement.replaceWith(newDescriptionElement);
+                }
+
+                if (editIcon) {
+                    editIcon.classList.remove('fa-save');
+                    editIcon.classList.add('fa-edit');
+                }
+                editBtn.style.backgroundColor = 'var(--primary-color)';
+                editBtn.dataset.editing = 'false';
+            });
         }
     });
-
 });
