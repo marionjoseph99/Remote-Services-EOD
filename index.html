@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EOD | KGS</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="auth.css">
+    <link rel="icon" type="image/png" href="logo.png">
+</head>
+<body data-theme="material">
+    <div id="auth-container" class="auth-container">
+        
+        <div class="auth-card">
+            <h2 id="auth-title">Login</h2>
+            <form id="auth-form">
+                <input type="email" id="auth-email" placeholder="Email" required>
+                <input type="password" id="auth-password" placeholder="Password" required>
+                <input type="text" id="auth-name" placeholder="Name" style="display: none;">
+                <input type="text" id="auth-client" placeholder="Client" style="display: none;">
+                <input type="text" id="auth-position" placeholder="Position" style="display: none;">
+                
+                <button type="submit" id="auth-submit-btn">Login</button>
+            </form>
+            <p class="auth-switch">
+                Don't have an account? <a href="#" id="show-register">Register</a>
+            </p>
+            <p class="auth-switch">
+                <a href="#" id="show-forgot-password">Forgot Password?</a>
+            </p>
+        </div>
+    </div>
+
+    <div id="dashboard-container" class="dashboard-container" style="display: none;">
+        
+        <div class="main-content-wrapper">
+            <div class="left-panel">
+                <div class="header-row">
+                    <div class="date-picker-container">
+                        <button id="date-display">Calendar</button>
+                        <div id="calendar-popup" class="calendar-popup">
+                            <div class="calendar-header">
+                                <button id="prev-month-btn">&lt;</button>
+                                <span id="current-month-year">August 2025</span>
+                                <button id="next-month-btn">&gt;</button>
+                            </div>
+                            <div class="calendar-grid-header">
+                                <span>Sun</span>
+                                <span>Mon</span>
+                                <span>Tue</span>
+                                <span>Wed</span>
+                                <span>Thu</span>
+                                <span>Fri</span>
+                                <span>Sat</span>
+                            </div>
+                            <div id="calendar-grid" class="calendar-grid">
+                            </div>
+                            <button id="today-btn" class="today-btn">Today</button> <!-- Add this line -->
+                        </div>
+                    </div>
+                    <button id="notes-btn" class="notes-btn">Coming Soon</button>
+                    <button id="logout-btn" class="logout-btn">Logout</button>
+                </div>
+
+                <div class="user-info">
+                    <h3>Hello, <span id="user-name">User</span>!</h3>
+                    <p>Client: <strong id="user-client">N/A</strong></p>
+                    <p>Position: <strong id="user-position">N/A</strong></p>
+                </div>
+                <div class="performance-section">
+                    <h3>Overall Performance</h3>
+                    <div class="performance-grid">
+                        <div class="metric green">
+                            <p>Done</p>
+                            <p class="value" data-overall="done">0</p>
+                        </div>
+                        <div class="metric yellow">
+                            <p>Work in Progress</p>
+                            <p class="value" data-overall="wip">0</p>
+                        </div>
+                        <div class="metric blue">
+                            <p>Not Started</p>
+                            <p class="value" data-overall="not-started">0</p>
+                        </div>
+                        <div class="metric orange">
+                            <p>Cancelled</p>
+                            <p class="value" data-overall="cancelled">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="right-panel">
+                <div class="performance-section">
+                    <h3>Today's Summary</h3>
+                    <div class="performance-grid">
+                        <div class="metric green" data-today="done">
+                            <p>Done</p>
+                            <p class="value" id="done-today">0</p>
+                            <div class="card-actions">
+                                <button class="plus-btn"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </div>
+                        <div class="metric yellow" data-today="wip">
+                            <p>Work in Progress</p>
+                            <p class="value" id="wip-today">0</p>
+                            <div class="card-actions">
+                                <button class="plus-btn"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </div>
+                        <div class="metric blue" data-today="not-started">
+                            <p>Not Started</p>
+                            <p class="value" id="not-started-today">0</p>
+                            <div class="card-actions">
+                                <button class="plus-btn"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </div>
+                        <div class="metric orange" data-today="cancelled">
+                            <p>Cancelled</p>
+                            <p class="value" id="cancelled-today">0</p>
+                            <div class="card-actions">
+                                <button class="plus-btn"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ongoing-tasks-container">
+                    <div class="ongoing-tasks-header">
+                        <h3>Ongoing Tasks</h3>
+                        <button class="collapse-toggle">
+                        <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                    <div class="ongoing-tasks-content">
+                        <div class="no-tasks">No ongoing tasks found</div>
+                    </div>
+                </div>
+                
+                <div class="daily-reports">
+                    <h3>Completed task for <span id="report-date"></span></h3>
+                    <p class="no-report">No report found for this day.</p>
+                    <div id="daily-activities" class="daily-activities-grid" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+
+    <div id="add-activity-modal" class="add-activity-modal">
+        <div class="modal-content">
+            <span class="modal-close-btn">&times;</span>
+            <h3 class="modal-title">Add New Activity</h3>
+            <input type="text" id="activity-input" placeholder="Enter activity name" required>
+            <button id="add-activity-btn">Add Activity</button>
+        </div>
+    </div>
+
+    <div id="message-modal" class="modal-overlay">
+    
+</div>
+
+<div id="notification-container"></div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>

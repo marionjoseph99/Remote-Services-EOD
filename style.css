@@ -1,0 +1,843 @@
+/*
+ * File: style.css
+ */
+:root {
+    --primary-color: #4a55a2; /* A deep, rich indigo blue */
+    --secondary-color: #7b848c; /* A neutral gray */
+    --background-color: #f0f2f5; /* A very light gray background */
+    --card-bg-color: #ffffff;
+    --text-color: #1a1a1a;
+    --light-text-color: #929292;
+    --border-color: #e3e3e3;
+    --hover-color: #f0f2f5;
+
+    /* Dynamic Colors inspired by Material You */
+    --done-bg: #e1f5e1; /* Light pastel green */
+    --done-text: #1b5e20; /* Darker green */
+    --wip-bg: #fffbe6; /* Light pastel yellow */
+    --wip-text: #fbc02d; /* Darker yellow */
+    --not-started-bg: #e3f2fd; /* Light pastel blue */
+    --not-started-text: #1976d2; /* Darker blue */
+    --cancelled-bg: #fbe9e7; /* Light pastel red */
+    --cancelled-text: #d32f2f; /* Darker red */
+}
+
+/* Base styles for a mobile-first approach */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--background-color);
+    margin: 0;
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
+    color: var(--text-color);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.dashboard-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    width: 100%;
+    max-width: 1300px;
+}
+
+.main-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.left-panel, .right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.left-panel > div, .right-panel > div {
+    background-color: var(--card-bg-color);
+    border-radius: 16px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.07);
+    padding: 1rem;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.user-info h3, .performance-section h3, .daily-reports h3, .ongoing-tasks-header h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin: 0 0 .5rem 0;
+}
+
+.user-info p {
+    margin: 0 0 0.75rem 0;
+    color: var(--secondary-color);
+    font-size: 0.95rem;
+}
+.user-info p strong {
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+.performance-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+}
+
+.metric {
+    position: relative;
+    padding: 1.25rem;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.metric:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+}
+
+.metric p {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--secondary-color);
+}
+
+.metric .value {
+    font-size: 3rem;
+    font-weight: 900;
+    margin-top: 0.6rem;
+}
+
+.metric.green { background-color: var(--done-bg); }
+.metric.green .value { color: var(--done-text); }
+
+.metric.yellow { background-color: var(--wip-bg); }
+.metric.yellow .value { color: var(--wip-text); }
+
+.metric.blue { background-color: var(--not-started-bg); }
+.metric.blue .value { color: var(--not-started-text); }
+
+.metric.orange { background-color: var(--cancelled-bg); }
+.metric.orange .value { color: var(--cancelled-text); }
+
+.card-actions {
+    position: absolute;
+    bottom: 0.75rem;
+    right: 0.75rem;
+    display: flex;
+    gap: 0.6rem;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.metric:hover .card-actions {
+    opacity: 1;
+    visibility: visible;
+}
+
+.card-actions button {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    transition: background-color 0.2s, transform 0.2s;
+}
+.card-actions button:hover {
+    background-color: #f0f0f0;
+    transform: scale(1.1);
+}
+
+.card-actions .plus-btn { color: var(--done-text); }
+.card-actions .minus-btn { color: var(--cancelled-text); }
+
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--card-bg-color);
+    border-radius: 16px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.07);
+    padding: 1.25rem 1.5rem;
+}
+
+/* Custom Date Picker Styles */
+.date-picker-container {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px; /* Adds a gap between date display and 'Today' button if present */
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.calendar-popup {
+    /* ... existing styles ... */
+    padding: 15px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.today-btn {
+    background-color: #4a55a2;
+    color: #fff;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+    width: 100%;
+}
+
+.today-btn:hover {
+    background-color: #2c347b;
+}
+
+
+#date-display {
+
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 25px;
+    font-size: 0.95rem;
+    color: #fff;
+    background-color: #4a55a2;
+    cursor: pointer;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+#date-display:hover {
+    background-color: #2c347b;
+    color: white;
+    transform: scale(1.02);
+}
+
+/*calendar styles*/
+.calendar-popup {
+    position: absolute;
+    top: 110%;
+    left: 0;
+    margin-top: 0.6rem;
+    background-color: var(--card-bg-color);
+    border-radius: 1rem;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.226);
+    padding: 1.25rem;
+    display: none;
+    width: 200px;
+    font-size: 0.9rem;
+    z-index: 1000;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.calendar-header button {
+    background-color: transparent;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+    color: var(--primary-color);
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+.calendar-header button:hover {
+    background-color: var(--hover-color);
+}
+
+#current-month-year {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text-color);
+}
+
+.calendar-grid-header,
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    gap: 0.1rem;
+}
+
+.calendar-grid-header span {
+    font-size: 0.75rem;
+    color: var(--secondary-color);
+    font-weight: 500;
+}
+
+.calendar-grid .day {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    aspect-ratio: 1 / 1;
+    font-weight: 500;
+    color: var(--secondary-color);
+    border-radius: 50%;
+    transition: background-color 0.2s, color 0.2s;
+    cursor: pointer;
+}
+
+.calendar-grid .day.current-month {
+    color: var(--text-color);
+}
+
+.calendar-grid .day.other-month {
+    color: #c5c5c5;
+    cursor: not-allowed;
+}
+
+.calendar-grid .day.today {
+    background-color: var(--primary-color);
+    color: #fff;
+}
+
+.calendar-grid .day.selected {
+    background-color: var(--primary-color);
+    color: #fff;
+    font-weight: 600;
+}
+
+.calendar-grid .day.has-entry::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 5px;
+    height: 5px;
+    background-color: var(--done-text);
+    border-radius: 50%;
+}
+
+
+.calendar-grid .day:hover {
+    background-color: #4a54a2b9;
+}
+
+.day.today {
+    background-color: var(--primary-color);
+    color: white;
+    font-weight: 600;
+}
+
+.day.has-entry::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    background-color: var(--primary-color);
+    border-radius: 50%;
+}
+
+.logout-btn, .notes-btn {
+    padding: 0.6rem 1.25rem;
+    font-size: 0.95rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+    font-weight: 600;
+}
+.logout-btn:hover, .notes-btn:hover {
+    background-color: #2c347b;
+    transform: scale(1.02);
+}
+
+.daily-reports {
+    min-height: 200px;
+}
+
+.no-report {
+    text-align: left;
+    color: var(--light-text-color);
+    font-style: italic;
+    margin-top: 1.5rem;
+}
+
+/* New Shared Card and Grid Styles */
+.ongoing-tasks-content, #daily-activities {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.daily-report-card, .task-item {
+    position: relative;
+    padding: 0.5rem;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.4rem;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.daily-report-card:hover, .task-item:hover {
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+    z-index: 10;
+}
+
+.daily-report-card.done, .task-item.done { background-color: var(--done-bg); }
+.daily-report-card.wip, .task-item.wip { background-color: var(--wip-bg); }
+.daily-report-card.not-started, .task-item.not-started { background-color: var(--not-started-bg); }
+.daily-report-card.cancelled, .task-item.cancelled { background-color: var(--cancelled-bg); }
+
+.daily-report-card .activity-text-container, .task-item .activity-text-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    width: 100%;
+}
+
+.daily-report-card .card-metadata, .daily-report-card .timestamp,
+.task-item .card-metadata, .task-item .timestamp {
+    display: none;
+}
+
+.daily-report-card .activity-text, .task-item .activity-text {
+    color: var(--text-color);
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-left: 10px;
+}
+
+.daily-report-card .controls, .task-item .controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.daily-report-card .delete-btn, .task-item .delete-btn {
+    background-color: #e74c3c;
+    color: #fff;
+    border: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.7rem;
+    transition: background-color 0.2s, transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.daily-report-card .delete-btn:hover, .task-item .delete-btn:hover {
+    background-color: #c0392b;
+    transform: scale(1.1);
+}
+
+/* Custom Dropdown for Status */
+.status-dropdown {
+    position: relative;
+}
+
+.status-dropdown-button {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.status-dropdown-button .status-icon {
+    font-size: 0.6rem;
+}
+
+.status-dropdown-menu {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    margin-bottom: 0.5rem;
+    background-color: var(--card-bg-color);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 10000;
+    min-width: 150px;
+    padding: 0.5rem;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.status-dropdown.show .status-dropdown-menu {
+    display: flex;
+}
+
+.status-dropdown-menu button {
+    background-color: transparent;
+    border: none;
+    padding: 0.4rem 0.6rem;
+    text-align: left;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-color);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    transition: background-color 0.2s;
+}
+
+.status-dropdown-menu button:hover {
+    background-color: var(--hover-color);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-dropdown-button .status-icon {
+    transition: transform 0.2s;
+}
+
+.status-dropdown.show .status-dropdown-button .status-icon {
+    transform: rotate(180deg);
+}
+
+/* New Activity Modal */
+.add-activity-modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    justify-content: center;
+    align-items: center;
+    padding: 1.5rem;
+}
+
+.modal-content {
+    background-color: var(--card-bg-color);
+    padding: 2rem;
+    border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    width: 100%;
+    max-width: 450px;
+    text-align: center;
+    animation: fadeIn 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-content h3 {
+    margin-top: 0;
+    color: var(--primary-color);
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.modal-content input {
+    width: 100%;
+    padding: 0.8rem;
+    margin-top: 1rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    font-size: 1rem;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.modal-content input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(74, 85, 162, 0.2);
+}
+
+.modal-content button {
+    width: 100%;
+    padding: 0.8rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    background-color: var(--primary-color);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+.modal-content button:hover {
+    background-color: #2c347b;
+    transform: scale(1.01);
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1.5rem;
+    font-size: 1.5rem;
+    color: var(--secondary-color);
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.modal-close-btn:hover {
+    color: var(--text-color);
+}
+
+/* Custom Message Modal (for alerts) */
+.message-modal {
+    display: none;
+    position: fixed;
+    z-index: 1001;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    justify-content: center;
+    align-items: center;
+}
+
+.message-modal-content {
+    background-color: var(--card-bg-color);
+    padding: 2rem;
+    border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    text-align: center;
+    width: 100%;
+    max-width: 400px;
+}
+
+.message-modal-content h3 {
+    margin: 0 0 1rem 0;
+    color: var(--primary-color);
+}
+
+.message-modal-content p {
+    margin: 0 0 1.5rem 0;
+    color: var(--text-color);
+}
+
+.message-modal-content button {
+    padding: 0.6rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    background-color: var(--primary-color);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.message-modal-content button:hover {
+    background-color: #2c347b;
+}
+
+/* Responsive design for smaller screens */
+@media (min-width: 768px) {
+    .dashboard-container {
+        flex-direction: column;
+    }
+    .main-content-wrapper {
+        flex-direction: row;
+    }
+    .left-panel {
+        width: 40%;
+    }
+    .right-panel {
+        width: 60%
+    }
+}
+
+/* New Notification Styles */
+#notification-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.notification {
+    background-color: var(--card-bg-color);
+    color: var(--text-color);
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    transform: translateX(120%);
+    animation: slideIn 0.5s forwards, fadeOut 0.5s 4.5s forwards;
+    min-width: 250px;
+}
+
+.notification.error {
+    background-color: var(--cancelled-bg);
+    color: var(--cancelled-text);
+}
+
+.notification.success {
+    background-color: var(--done-bg);
+    color: var(--done-text);
+}
+
+@keyframes slideIn {
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    to {
+        opacity: 0;
+        transform: translateX(120%);
+    }
+}
+
+.modal-title {
+    display: none;
+}
+
+/* Ongoing Tasks Container */
+.ongoing-tasks-container {
+    background-color: var(--card-bg-color);
+    border-radius: 16px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.07);
+    padding: 1.5rem;
+}
+
+.ongoing-tasks-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+
+.ongoing-tasks-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    overflow-y: visible;
+    transition: all 0.3s ease;
+}
+
+/* Collapsed State */
+.ongoing-tasks-content.collapsed {
+    max-height: 0;
+    overflow: hidden;
+    margin-top: 0;
+}
+
+.task-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.task-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.task-date {
+    font-size: 0.75rem;
+    color: var(--secondary-color);
+}
+
+.task-status {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+.task-status.wip {
+    background-color: var(--wip-text);
+    color: white;
+}
+
+.task-status.not-started {
+    background-color: var(--not-started-text);
+    color: white;
+}
+
+/* Collapse Toggle */
+.collapse-toggle {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.collapse-toggle.collapsed {
+    transform: rotate(-90deg);
+}
+
+.no-tasks {
+    text-align: left;
+    color: var(--light-text-color);
+    font-style: italic;
+    padding: 1rem 0;
+}
