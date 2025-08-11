@@ -9,7 +9,33 @@
     <link rel="stylesheet" href="auth.css">
     <link rel="icon" type="image/png" href="logo.png">
 </head>
+
+<div class="floating-btn-container">
+    <button id="version-btn" class="floating-btn" aria-label="Open version history">
+        Version notes
+    </button>
+</div>
+
+
+<div id="version-modal" class="modal-overlay" role="dialog" aria-labelledby="version-history-title">
+    <div class="chatbot-modal">
+        <div class="chatbot-header">
+            <h3 id="version-history-title">Version History</h3>
+            <button class="modal-close-btn" aria-label="Close version history">&times;</button>
+        </div>
+        <div id="version-button-container" class="version-btn">
+            <button class="vbtn active" data-version="v2.0">V2.0 Latest Version</button>
+            <button class="vbtn" data-version="v1.1">V1.1</button>
+            <button class="vbtn" data-version="v1.0">V1.0</button>
+        </div>
+        <div id="version-messages" class="chatbot-messages">
+            </div>
+    </div>
+</div>
+
 <body data-theme="material">
+    
+    
     <div id="auth-container" class="auth-container">
         
         <div class="auth-card">
@@ -59,7 +85,6 @@
                             <button id="today-btn" class="today-btn">Today</button> <!-- Add this line -->
                         </div>
                     </div>
-                    <button id="notes-btn" class="notes-btn">Coming Soon</button>
                     <button id="logout-btn" class="logout-btn">Logout</button>
                 </div>
 
@@ -94,7 +119,7 @@
             <div class="right-panel">
                 <div class="performance-section">
                     <h3>Today's Summary</h3>
-                    <div class="performance-grid">
+                    <div class="performance-grid-2">
                         <div class="metric green" data-today="done">
                             <p>Done</p>
                             <p class="value" id="done-today">0</p>
@@ -130,7 +155,7 @@
                     <div class="ongoing-tasks-header">
                         <h3>Ongoing Tasks</h3>
                         <button class="collapse-toggle">
-                        <i class="fas fa-chevron-down"></i>
+                        <i class="fas fa-chevron-down chevron-icon"></i>
                         </button>
                     </div>
                     <div class="ongoing-tasks-content">
@@ -153,6 +178,7 @@
             <span class="modal-close-btn">&times;</span>
             <h3 class="modal-title">Add New Activity</h3>
             <input type="text" id="activity-input" placeholder="Enter activity name" required>
+            <input id="activity-description-input" placeholder="Enter activity description (Optional)"></input>
             <button id="add-activity-btn">Add Activity</button>
         </div>
     </div>
@@ -164,5 +190,6 @@
 <div id="notification-container"></div>
 
     <script type="module" src="script.js"></script>
+    <script type="module" src="version.js"></script>
 </body>
 </html>
