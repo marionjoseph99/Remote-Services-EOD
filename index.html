@@ -34,11 +34,11 @@
 
     <div id="dashboard-container" class="dashboard-container" style="display: none;">
         
-                <div class="main-content-wrapper">
-                    <div class="left-panel">
-                        <div class="header-row">
+        <div class="main-content-wrapper">
+            <div class="left-panel">
+                <div class="header-row">
                     <div class="date-picker-container">
-                        <button id="date-display">2025-08-05</button>
+                        <button id="date-display">Calendar</button>
                         <div id="calendar-popup" class="calendar-popup">
                             <div class="calendar-header">
                                 <button id="prev-month-btn">&lt;</button>
@@ -55,9 +55,11 @@
                                 <span>Sat</span>
                             </div>
                             <div id="calendar-grid" class="calendar-grid">
-                                </div>
+                            </div>
+                            <button id="today-btn" class="today-btn">Today</button> <!-- Add this line -->
                         </div>
                     </div>
+                    <button id="notes-btn" class="notes-btn">Coming Soon</button>
                     <button id="logout-btn" class="logout-btn">Logout</button>
                 </div>
 
@@ -88,6 +90,7 @@
                     </div>
                 </div>
             </div>
+            
             <div class="right-panel">
                 <div class="performance-section">
                     <h3>Today's Summary</h3>
@@ -122,21 +125,34 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="ongoing-tasks-container">
+                    <div class="ongoing-tasks-header">
+                        <h3>Ongoing Tasks</h3>
+                        <button class="collapse-toggle">
+                        <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                    <div class="ongoing-tasks-content">
+                        <div class="no-tasks">No ongoing tasks found</div>
+                    </div>
+                </div>
+                
                 <div class="daily-reports">
-                    <h3>Daily Reports for <span id="report-date">2025-08-05</span></h3>
+                    <h3>Completed task for <span id="report-date"></span></h3>
                     <p class="no-report">No report found for this day.</p>
                     <div id="daily-activities" class="daily-activities-grid" style="display: none;"></div>
                 </div>
             </div>
         </div>
     </div>
+    
 
     <div id="add-activity-modal" class="add-activity-modal">
         <div class="modal-content">
             <span class="modal-close-btn">&times;</span>
             <h3 class="modal-title">Add New Activity</h3>
-            <input type="text" id="activity-input" placeholder="Enter Job no./ Qoute no." required>
-            <textarea id="activity-description-input" placeholder="Enter Activity Description"></textarea>
+            <input type="text" id="activity-input" placeholder="Enter activity name" required>
             <button id="add-activity-btn">Add Activity</button>
         </div>
     </div>
