@@ -1,25 +1,32 @@
 // File: auth.js
 
 // Import the functions you need from the SDKs you need
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-import { 
-    getAuth, 
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword, 
-    sendPasswordResetEmail, 
-    signOut, 
+import {
+    initializeApp
+} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+import {
+    getAuth,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    sendPasswordResetEmail,
+    signOut,
     onAuthStateChanged,
     updateProfile
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
-import { 
-    getFirestore, 
-    doc, 
-    setDoc, 
+import {
+    getFirestore,
+    doc,
+    setDoc,
     getDoc,
     updateDoc,
-    arrayUnion,
-    arrayRemove,
-    increment
+    increment,
+    collection,
+    query,
+    where,
+    getDocs,
+    deleteDoc,
+    writeBatch,
+    onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 // Your web app's Firebase configuration
@@ -37,12 +44,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-/**
- * Registers a new user with email and password.
- * @param {string} email - The user's email.
- * @param {string} password - The user's password.
- * @returns {Promise<UserCredential>} A promise that resolves with user credentials.
- */
 export async function registerUser(email, password) {
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -54,12 +55,6 @@ export async function registerUser(email, password) {
     }
 }
 
-/**
- * Updates the user's profile with a display name.
- * @param {object} user - The user object from Firebase Auth.
- * @param {string} displayName - The display name to set.
- * @returns {Promise<void>} A promise that resolves when the profile is updated.
- */
 export async function updateUserProfile(user, displayName) {
     try {
         await updateProfile(user, {
@@ -72,12 +67,6 @@ export async function updateUserProfile(user, displayName) {
     }
 }
 
-/**
- * Saves additional user details and initializes performance summary to Firestore.
- * @param {string} userId - The UID of the user.
- * @param {object} details - An object containing name, client, and position.
- * @returns {Promise<void>} A promise that resolves when data is saved.
- */
 export async function saveUserDetailsToFirestore(userId, details) {
     try {
         const userDocRef = doc(db, "users", userId);
@@ -97,11 +86,6 @@ export async function saveUserDetailsToFirestore(userId, details) {
     }
 }
 
-/**
- * Retrieves all user data including details and performance summary.
- * @param {string} userId - The UID of the user.
- * @returns {Promise<object|null>} A promise that resolves with the user's data or null if not found.
- */
 export async function getAllUserDataFromFirestore(userId) {
     try {
         const userDocRef = doc(db, "users", userId);
@@ -121,47 +105,84 @@ export async function getAllUserDataFromFirestore(userId) {
 }
 
 /**
- * Retrieves daily activities for a specific date.
+ * Sets up a real-time listener for daily completed/cancelled activities for a specific date.
  * @param {string} userId - The UID of the user.
  * @param {string} dateString - The date in YYYY-MM-DD format.
- * @returns {Promise<object|null>} A promise that resolves with the daily report or null if not found.
+ * @param {function} callback - The callback function to execute on data change.
+ * @returns {function} An unsubscribe function to stop the listener.
  */
-export async function getDailyActivities(userId, dateString) {
-    try {
-        const dailyReportRef = doc(db, "users", userId, "dailyActivities", dateString);
-        const dailyReportSnap = await getDoc(dailyReportRef);
-        return dailyReportSnap.exists() ? dailyReportSnap.data() : null;
-    } catch (error) {
-        console.error("Error fetching daily activities:", error.message);
-        throw error;
-    }
+export function setupDailyActivitiesListener(userId, dateString, callback) {
+    const dailyReportsRef = collection(db, "users", userId, "dailyReports");
+    const q = query(dailyReportsRef, where("completionDate", "==", dateString));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const activities = [];
+        querySnapshot.forEach((doc) => {
+            activities.push(doc.data());
+        });
+        callback(activities);
+    }, (error) => {
+        console.error("Error setting up daily activities listener:", error.message);
+    });
+
+    return unsubscribe;
 }
 
 /**
- * Adds a new activity to a user's daily report and updates performance summaries.
+ * Sets up a real-time listener for all ongoing (wip/not-started) tasks.
  * @param {string} userId - The UID of the user.
- * @param {string} dateString - The date in YYYY-MM-DD format.
+ * @param {function} callback - The callback function to execute on data change.
+ * @returns {function} An unsubscribe function to stop the listener.
+ */
+export function setupOngoingTasksListener(userId, callback) {
+    const ongoingTasksRef = collection(db, "users", userId, "ongoingTasks");
+    const q = query(ongoingTasksRef);
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const ongoingTasks = [];
+        querySnapshot.forEach((doc) => {
+            ongoingTasks.push(doc.data());
+        });
+        callback(ongoingTasks);
+    }, (error) => {
+        console.error("Error setting up ongoing tasks listener:", error.message);
+    });
+
+    return unsubscribe;
+}
+
+/**
+ * Adds a new activity to the appropriate collection (ongoing or daily report)
+ * @param {string} userId - The UID of the user.
  * @param {object} newActivity - The new activity object to add.
- * @param {string} status - The status of the new activity ('done', 'wip', etc.).
  * @returns {Promise<void>}
  */
-export async function addActivityToDailyReport(userId, dateString, newActivity, status) {
+export async function addActivity(userId, newActivity) {
     try {
         const userDocRef = doc(db, "users", userId);
-        const dailyReportRef = doc(db, "users", userId, "dailyActivities", dateString);
+        const {
+            status,
+            id
+        } = newActivity;
 
-        await setDoc(dailyReportRef, {
-            activities: arrayUnion(newActivity),
-            [status]: increment(1),
-        }, { merge: true });
+        if (status === 'wip' || status === 'not-started') {
+            const ongoingTaskRef = doc(db, "users", userId, "ongoingTasks", String(id));
+            await setDoc(ongoingTaskRef, newActivity);
+        } else {
+            const dailyReportRef = doc(db, "users", userId, "dailyReports", String(id));
+            await setDoc(dailyReportRef, newActivity);
+        }
 
+        // Update the overall performance summary
         await updateDoc(userDocRef, {
             [`performanceSummary.${status}`]: increment(1)
         });
 
-        console.log("Activity added to daily report and performance updated.");
+        console.log("Activity added and performance updated.");
     } catch (error) {
         console.error("Error adding activity:", error.message);
+        throw error;
+        // Rethrow the error so the UI can handle the failure
         throw error;
     }
 }
@@ -169,36 +190,80 @@ export async function addActivityToDailyReport(userId, dateString, newActivity, 
 /**
  * Updates the status of an activity and the performance summaries.
  * @param {string} userId - The UID of the user.
- * @param {string} dateString - The date in YYYY-MM-DD format.
  * @param {object} activityToUpdate - The original activity object.
  * @param {string} newStatus - The new status of the activity.
+ * @param {string} completionDate - The date when the task was completed.
  * @returns {Promise<void>}
  */
-export async function updateActivityStatus(userId, dateString, activityToUpdate, newStatus) {
+export async function updateActivityStatus(userId, activityToUpdate, newStatus, completionDate) {
+    const oldStatus = activityToUpdate.status;
+
+    if (oldStatus === newStatus) {
+        console.log("Status is already the same, no update needed.");
+        return;
+    }
+
+    const batch = writeBatch(db);
+    const userDocRef = doc(db, "users", userId);
+
+    // Update overall performance summary
+    batch.update(userDocRef, {
+        [`performanceSummary.${oldStatus}`]: increment(-1),
+        [`performanceSummary.${newStatus}`]: increment(1)
+    });
+
+
+    // Handle moving between ongoing and daily reports
+    if ((oldStatus === 'wip' || oldStatus === 'not-started') && (newStatus === 'done' || newStatus === 'cancelled')) {
+        // Move from ongoingTasks to dailyReports
+        const ongoingTaskRef = doc(db, "users", userId, "ongoingTasks", String(activityToUpdate.id));
+        const dailyReportRef = doc(db, "users", userId, "dailyReports", String(activityToUpdate.id));
+        const newActivity = {
+            ...activityToUpdate,
+            status: newStatus,
+            completionDate: completionDate, // Use the provided completionDate
+            creationDate: null,
+        };
+
+        batch.delete(ongoingTaskRef);
+        batch.set(dailyReportRef, newActivity);
+
+    } else if ((oldStatus === 'done' || oldStatus === 'cancelled') && (newStatus === 'wip' || newStatus === 'not-started')) {
+        // Move from dailyReports to ongoingTasks
+        const dailyReportRef = doc(db, "users", userId, "dailyReports", String(activityToUpdate.id));
+        const ongoingTaskRef = doc(db, "users", userId, "ongoingTasks", String(activityToUpdate.id));
+        const newActivity = {
+            ...activityToUpdate,
+            status: newStatus,
+            creationDate: completionDate,
+            completionDate: null
+        };
+
+        batch.delete(dailyReportRef);
+        batch.set(ongoingTaskRef, newActivity);
+
+    } else {
+        // Status change within the same collection
+        if (oldStatus === 'wip' || oldStatus === 'not-started') {
+            const ongoingTaskRef = doc(db, "users", userId, "ongoingTasks", String(activityToUpdate.id));
+            batch.update(ongoingTaskRef, {
+                status: newStatus
+            });
+        } else {
+            const dailyReportRef = doc(db, "users", userId, "dailyReports", String(activityToUpdate.id));
+            batch.update(dailyReportRef, {
+                status: newStatus
+            });
+        }
+    }
+
     try {
-        const userDocRef = doc(db, "users", userId);
-        const dailyReportRef = doc(db, "users", userId, "dailyActivities", dateString);
-        const oldStatus = activityToUpdate.status;
-        
-        const updatedActivity = { ...activityToUpdate, status: newStatus };
-        
-        await updateDoc(dailyReportRef, {
-            activities: arrayRemove(activityToUpdate)
-        });
-        await updateDoc(dailyReportRef, {
-            activities: arrayUnion(updatedActivity),
-            [oldStatus]: increment(-1),
-            [newStatus]: increment(1)
-        });
-
-        await updateDoc(userDocRef, {
-            [`performanceSummary.${oldStatus}`]: increment(-1),
-            [`performanceSummary.${newStatus}`]: increment(1)
-        });
-
+        await batch.commit();
         console.log("Activity status updated and performance summaries adjusted.");
     } catch (error) {
         console.error("Error updating activity status:", error.message);
+        throw error;
+        // Rethrow the error so the UI can handle the failure
         throw error;
     }
 }
@@ -206,21 +271,29 @@ export async function updateActivityStatus(userId, dateString, activityToUpdate,
 /**
  * Deletes an activity and updates the performance summaries.
  * @param {string} userId - The UID of the user.
- * @param {string} dateString - The date in YYYY-MM-DD format.
  * @param {object} activityToDelete - The activity object to delete.
- * @param {string} status - The status of the activity being deleted.
  * @returns {Promise<void>}
  */
-export async function deleteActivity(userId, dateString, activityToDelete, status) {
+export async function deleteActivity(userId, activityToDelete) {
     try {
         const userDocRef = doc(db, "users", userId);
-        const dailyReportRef = doc(db, "users", userId, "dailyActivities", dateString);
+        const {
+            status,
+            id
+        } = activityToDelete;
 
-        await updateDoc(dailyReportRef, {
-            activities: arrayRemove(activityToDelete),
-            [status]: increment(-1)
-        });
+        // Reference to the activity document to delete
+        let activityRef;
+        if (status === 'wip' || status === 'not-started') {
+            activityRef = doc(db, "users", userId, "ongoingTasks", String(id));
+        } else {
+            activityRef = doc(db, "users", userId, "dailyReports", String(id));
+        }
 
+        // Delete the document
+        await deleteDoc(activityRef);
+
+        // Update the overall performance summary
         await updateDoc(userDocRef, {
             [`performanceSummary.${status}`]: increment(-1)
         });
@@ -229,41 +302,11 @@ export async function deleteActivity(userId, dateString, activityToDelete, statu
     } catch (error) {
         console.error("Error deleting activity:", error.message);
         throw error;
+        // Rethrow the error so the UI can handle the failure
+        throw error;
     }
 }
 
-/**
- * Updates the text or description of an activity.
- * @param {string} userId - The UID of the user.
- * @param {string} date - The date in YYYY-MM-DD format.
- * @param {object} activity - The original activity object.
- * @param {string} field - The field to update ('text' or 'description').
- * @param {string} newText - The new value for the field.
- * @returns {Promise<void>}
- */
-export async function updateActivityText(userId, date, activity, field, newText) {
-    const dailyActivitiesRef = doc(db, "users", userId, "dailyActivities", date);
-    
-    const docSnap = await getDoc(dailyActivitiesRef);
-    if (docSnap.exists()) {
-        const data = docSnap.data();
-        const activities = data.activities;
-        const activityIndex = activities.findIndex(a => a.id === activity.id);
-
-        if (activityIndex > -1) {
-            activities[activityIndex][field] = newText;
-            await updateDoc(dailyActivitiesRef, { activities: activities });
-        }
-    }
-}
-
-
-/**
- * Logs in an existing user with email and password.
- * @param {string} email - The user's email.
- * @param {string} password - The user's password.
- * @returns {Promise<UserCredential>} A promise that resolves with user credentials.
- */
 export async function loginUser(email, password) {
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -275,11 +318,6 @@ export async function loginUser(email, password) {
     }
 }
 
-/**
- * Sends a password reset email to the given email address.
- * @param {string} email - The email address to send the reset link to.
- * @returns {Promise<void>} A promise that resolves when the email is sent.
- */
 export async function resetPassword(email) {
     try {
         await sendPasswordResetEmail(auth, email);
@@ -290,10 +328,6 @@ export async function resetPassword(email) {
     }
 }
 
-/**
- * Logs out the current user.
- * @returns {Promise<void>} A promise that resolves when the user is logged out.
- */
 export async function logoutUser() {
     try {
         await signOut(auth);
@@ -304,13 +338,13 @@ export async function logoutUser() {
     }
 }
 
-/**
- * Sets up an authentication state change listener.
- * @param {function(User|null)} callback - The callback function to be called when the auth state changes.
- */
 export function setupAuthChangeListener(callback) {
     onAuthStateChanged(auth, callback);
 }
 
-// Export the auth and db objects if needed for direct access in other modules
-export { auth, app, db };
+// Export the auth and db objects
+export {
+    auth,
+    app,
+    db
+};
