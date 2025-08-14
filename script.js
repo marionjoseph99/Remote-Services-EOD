@@ -1,4 +1,6 @@
 // File: script.js
+import { HighlightManager } from './highlight.js';
+
 import {
     registerUser,
     updateUserProfile,
@@ -25,6 +27,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', () => {
+    // DOM Elements
     const authContainer = document.getElementById('auth-container');
     const dashboardContainer = document.getElementById('dashboard-container');
     const authTitle = document.getElementById('auth-title');
@@ -49,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const prevMonthBtn = document.getElementById('prev-month-btn');
     const nextMonthBtn = document.getElementById('next-month-btn');
     const calendarGrid = document.getElementById('calendar-grid');
-    const todayBtn = document.getElementById('today-btn'); // New element for "Today" button
+    const todayBtn = document.getElementById('today-btn');
 
     const addActivityModal = document.getElementById('add-activity-modal');
     const activityInput = document.getElementById('activity-input');
@@ -79,6 +82,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const notificationContainer = document.getElementById('notification-container');
 
+    // Highlight Elements
+    const highlightDisplay = document.getElementById('highlight-display');
+    const highlightEdit = document.getElementById('highlight-edit');
+    const highlightEditBtn = document.getElementById('highlight-edit-btn');
+    const highlightSaveBtn = document.getElementById('highlight-save-btn');
+    const highlightCancelBtn = document.getElementById('highlight-cancel-btn');
+    
+    console.log('Highlight elements:', {
+        highlightDisplay,
+        highlightEdit,
+        highlightEditBtn
+    });
+    
+
+    // State Variables
     let overallPerformance = {
         done: 0,
         wip: 0,
@@ -89,12 +107,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentCalendarDate = new Date();
     let currentUserId = null;
     let modalStatus;
+    let highlightManager;
 
     // Unsubscribe functions for real-time listeners
     let unsubscribeDaily = null;
     let unsubscribeOngoing = null;
 
-    // New variables to hold the data from the listeners
+    // Data from listeners
     let dailyActivitiesData = [];
     let ongoingTasksData = [];
 
@@ -122,6 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // Helper Functions
     function showNotification(message, type = 'success') {
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
@@ -138,10 +158,100 @@ document.addEventListener('DOMContentLoaded', () => {
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     }
+    function updateHighlightManagerDate(date) {
+    if (highlightManager) {
+        highlightManager.setDate(date);
+        setupHighlightUI(); // Refresh the highlight UI with new date
+    }
+}
 
-    /**
-     * Calculates and updates the "Today's Summary" based on the latest data.
-     */
+    // Highlight Functions
+    async function setupHighlightUI() {
+    if (!highlightManager) return;
+
+    const highlightDisplay = document.getElementById('highlight-display');
+    const highlightEditorContainer = document.getElementById('highlight-editor');
+    const editBtn = document.getElementById('highlight-edit-btn');
+    const saveBtn = document.getElementById('highlight-save-btn');
+    const cancelBtn = document.getElementById('highlight-cancel-btn');
+
+    // Initialize Quill with default toolbar
+    if (!window.quillHighlight) {
+        window.quillHighlight = new Quill('#highlight-quill', {
+            theme: 'snow',
+            modules: {
+                toolbar: [
+                    [{ 'header': [1, 2, false] }],
+                    ['bold', 'italic', 'underline'],
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    ['clean']
+                ]
+            }
+        });
+    }
+    const quill = window.quillHighlight;
+
+    // Load and display highlight
+    async function loadHighlight() {
+        const content = await highlightManager.load();
+        highlightDisplay.innerHTML = content ? content : '';
+        highlightDisplay.dataset.placeholder = "Click edit to add today's highlight";
+        updatePlaceholder();
+    }
+
+    function updatePlaceholder() {
+        if (!highlightDisplay.innerHTML.trim()) {
+            highlightDisplay.classList.add('empty');
+        } else {
+            highlightDisplay.classList.remove('empty');
+        }
+    }
+
+    function toggleEditMode(editing) {
+        if (editing) {
+            highlightDisplay.style.display = 'none';
+            highlightEditorContainer.style.display = 'block';
+            quill.root.innerHTML = highlightDisplay.innerHTML;
+            editBtn.style.display = 'none';
+            saveBtn.style.display = 'inline-flex';
+            cancelBtn.style.display = 'inline-flex';
+        } else {
+            highlightDisplay.style.display = 'block';
+            highlightEditorContainer.style.display = 'none';
+            editBtn.style.display = 'inline-flex';
+            saveBtn.style.display = 'none';
+            cancelBtn.style.display = 'none';
+        }
+    }
+
+    editBtn.addEventListener('click', () => toggleEditMode(true));
+
+    cancelBtn.addEventListener('click', () => {
+        toggleEditMode(false);
+    });
+
+    saveBtn.addEventListener('click', async () => {
+        const newContent = quill.root.innerHTML.trim();
+        try {
+            await highlightManager.save(newContent);
+            highlightDisplay.innerHTML = newContent;
+            toggleEditMode(false);
+            updatePlaceholder();
+            showNotification('Highlight saved!');
+        } catch (error) {
+            showNotification('Failed to save highlight', 'error');
+        }
+    });
+
+    // Initial load
+    await loadHighlight();
+
+    // Update placeholder when content changes (for non-input events)
+    const observer = new MutationObserver(updatePlaceholder);
+    observer.observe(highlightDisplay, { childList: true, subtree: true });
+}
+
+    // Performance Functions
     function refreshPerformanceSummary() {
         if (!currentUserId) return;
 
@@ -165,11 +275,57 @@ document.addEventListener('DOMContentLoaded', () => {
         todayPerformanceValues.cancelled.textContent = cancelledCount;
     }
 
+    function updateOverallPerformanceUI() {
+        if (!overallPerformanceValues) return;
+        overallPerformanceValues.done.textContent = overallPerformance.done;
+        overallPerformanceValues.wip.textContent = overallPerformance.wip;
+        overallPerformanceValues['not-started'].textContent = overallPerformance['not-started'];
+        overallPerformanceValues.cancelled.textContent = overallPerformance.cancelled;
+    }
 
-    /**
-     * Renders ONLY wip/not-started tasks from the ongoingTasks collection
-     * @param {Array} ongoingTasks - The array of tasks to render.
-     */
+    // Activity Card Functions
+    function createActivityCard(activity) {
+        const card = document.createElement('div');
+        card.className = `daily-report-card ${activity.status}`;
+        card.dataset.activityId = activity.id;
+        card.dataset.activity = JSON.stringify(activity);
+        card.dataset.date = activity.creationDate || activity.completionDate;
+        const currentStatus = statusOptions[activity.status] || statusOptions['not-started'];
+        const dropdownHtml = `
+            <div class="status-dropdown">
+                <button class="status-dropdown-button" style="background-color: ${currentStatus.dotColor};">
+                    ${currentStatus.text}
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="status-dropdown-menu">
+                    ${Object.keys(statusOptions).map(status => `
+                        <button data-status="${status}">
+                            <span class="status-dot" style="background-color: ${statusOptions[status].dotColor};"></span>
+                            ${statusOptions[status].text}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        const dateDisplay = activity.creationDate ? `Created on: ${activity.creationDate}` : `Completed on: ${activity.completionDate}`;
+        card.innerHTML = `
+            <div class="activity-text-container">
+                <span class="activity-text">${activity.text}</span>
+                <span class="activity-description">${activity.description || ''}</span>
+                <span class="timestamp">${dateDisplay}</span>
+            </div>
+            <div class="controls">
+                ${dropdownHtml}
+                <div class="card-buttons">
+                    <button class="edit-btn"><i class="fas fa-edit"></i></button>
+                    <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
+                </div>
+            </div>
+        `;
+        return card;
+    }
+
+    // Rendering Functions
     function renderOngoingTasks(ongoingTasks) {
         if (!currentUserId) return;
 
@@ -187,10 +343,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /**
-     * Renders daily report tasks from the dailyReports collection
-     * @param {Array} dailyActivities - The array of tasks to render.
-     */
     function renderDailyActivities(dailyActivities) {
         if (!currentUserId) return;
 
@@ -212,7 +364,6 @@ document.addEventListener('DOMContentLoaded', () => {
             dailyActivitiesList.style.display = 'none';
         }
     }
-
 
     function renderCalendar() {
         calendarGrid.innerHTML = '';
@@ -250,37 +401,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 dayEl.classList.add('selected');
             }
             dayEl.addEventListener('click', () => {
-                const parts = dateString.split('-');
-                // Create the date in CST to avoid timezone issues
-                selectedDate = new Date(parts[0], parts[1] - 1, parts[2], 12); // Using 12pm to avoid timezone shift
-                updateUI(currentUserId, selectedDate);
-            });
+            const parts = dateString.split('-');
+            selectedDate = new Date(parts[0], parts[1] - 1, parts[2], 12);
+            updateUI(currentUserId, selectedDate);
+            updateHighlightManagerDate(selectedDate); // Fixed function name
+        });
 
             calendarGrid.appendChild(dayEl);
         }
     }
 
+    // Activity Modal Functions
     function closeActivityModal() {
         addActivityModal.style.display = 'none';
         activityInput.value = '';
         activityDescriptionInput.value = '';
     }
 
-    function updateOverallPerformanceUI() {
-        if (!overallPerformanceValues) return;
-        overallPerformanceValues.done.textContent = overallPerformance.done;
-        overallPerformanceValues.wip.textContent = overallPerformance.wip;
-        overallPerformanceValues['not-started'].textContent = overallPerformance['not-started'];
-        overallPerformanceValues.cancelled.textContent = overallPerformance.cancelled;
-    }
-
-
-    // New function to handle optimistic UI update for adding a task
     async function addNewActivity() {
         const activityText = activityInput.value.trim();
         const activityDescription = activityDescriptionInput.value.trim();
         const activityStatus = modalStatus;
-        const formattedDate = formatDate(selectedDate); // Corrected to use selectedDate
+        const formattedDate = formatDate(selectedDate);
 
         if (activityText && currentUserId) {
             const now = new Date();
@@ -297,27 +439,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 timestamp: timestamp,
             };
 
-            // Set creationDate or completionDate based on status
             if (activityStatus === 'done' || activityStatus === 'cancelled') {
                 newActivity.completionDate = formattedDate;
             } else {
                 newActivity.creationDate = formattedDate;
             }
 
-
-            // Optimistically update the UI by manually creating a card
             const container = (activityStatus === 'done' || activityStatus === 'cancelled') ? dailyActivitiesList : ongoingTasksContent;
             const newCard = createActivityCard(newActivity);
 
-            // Only append the card if the date matches the current view
             const currentFormattedDate = formatDate(selectedDate);
             if (formattedDate === currentFormattedDate || (activityStatus === 'wip' || activityStatus === 'not-started')) {
                 container.appendChild(newCard);
             }
 
-            // Optimistically update overall performance counters
-            const oldOverallPerformance = { ...overallPerformance
-            };
+            const oldOverallPerformance = { ...overallPerformance };
             if (overallPerformance[activityStatus] !== undefined) {
                 overallPerformance[activityStatus]++;
                 updateOverallPerformanceUI();
@@ -328,7 +464,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 showNotification('Activity added successfully!');
             } catch (error) {
                 showNotification('Failed to add activity: ' + error.message, 'error');
-                // Revert the optimistic UI update on failure
                 newCard.remove();
                 overallPerformance = oldOverallPerformance;
                 updateOverallPerformanceUI();
@@ -339,9 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /**
-     * Main function to set up listeners and render the UI.
-     */
+    // Main UI Functions
     async function updateUI(userId, date) {
         if (!userId) return;
 
@@ -349,14 +482,10 @@ document.addEventListener('DOMContentLoaded', () => {
         dateDisplay.textContent = formattedDate;
         reportDateSpan.textContent = formattedDate;
 
-        // Unsubscribe from the previous daily listener if it exists
         if (unsubscribeDaily) unsubscribeDaily();
-
-        // Set up a new real-time listener for the selected date
         unsubscribeDaily = setupDailyActivitiesListener(userId, formattedDate, (activities) => {
             dailyActivitiesData = activities;
             renderDailyActivities(activities);
-            // Recalculate today's performance when the daily data changes
             refreshPerformanceSummary();
         });
 
@@ -377,53 +506,6 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification('Failed to load user data: ' + error.message, 'error');
         }
     }
-
-    /**
- * Creates an activity card element.
- * @param {object} activity - The activity object.
- * @returns {HTMLElement} The created card element.
- */
-function createActivityCard(activity) {
-    const card = document.createElement('div');
-    card.className = `daily-report-card ${activity.status}`;
-    card.dataset.activityId = activity.id;
-    card.dataset.activity = JSON.stringify(activity);
-    card.dataset.date = activity.creationDate || activity.completionDate;
-    const currentStatus = statusOptions[activity.status] || statusOptions['not-started'];
-    const dropdownHtml = `
-        <div class="status-dropdown">
-            <button class="status-dropdown-button" style="background-color: ${currentStatus.dotColor};">
-                ${currentStatus.text}
-                <i class="fas fa-chevron-down"></i>
-            </button>
-            <div class="status-dropdown-menu">
-                ${Object.keys(statusOptions).map(status => `
-                    <button data-status="${status}">
-                        <span class="status-dot" style="background-color: ${statusOptions[status].dotColor};"></span>
-                        ${statusOptions[status].text}
-                    </button>
-                `).join('')}
-            </div>
-        </div>
-    `;
-    const dateDisplay = activity.creationDate ? `Created on: ${activity.creationDate}` : `Completed on: ${activity.completionDate}`;
-    card.innerHTML = `
-        <div class="activity-text-container">
-            <span class="activity-text">${activity.text}</span>
-            <span class="activity-description">${activity.description || ''}</span>
-            <span class="timestamp">${dateDisplay}</span>
-        </div>
-        <div class="controls">
-            ${dropdownHtml}
-            <div class="card-buttons">
-                <button class="edit-btn"><i class="fas fa-edit"></i></button>
-                <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
-            </div>
-        </div>
-    `;
-    return card;
-}
-
 
     function showAuthForm(mode) {
         authMode = mode;
@@ -461,18 +543,36 @@ function createActivityCard(activity) {
     }
 
     async function showDashboard(user) {
-        authContainer.style.display = 'none';
-        dashboardContainer.style.display = 'flex';
-        currentUserId = user.uid;
+    // Add a check to ensure the user object and its uid property are valid
+    if (!user || !user.uid) {
+        console.error("User object or User ID is invalid. Cannot show dashboard.");
+        showNotification("Authentication error. Please try logging in again.", 'error');
+        // Optionally, redirect to the login form
+        showAuthForm('login');
+        return;
+    }
 
-        // Unsubscribe from previous ongoing listener if it exists
+    authContainer.style.display = 'none';
+    dashboardContainer.style.display = 'flex';
+    currentUserId = user.uid;
+    
+
+    authContainer.style.display = 'none';
+    dashboardContainer.style.display = 'flex';
+    currentUserId = user.uid;
+    
+
+    // Initialize highlight manager
+    highlightManager = new HighlightManager(user.uid, selectedDate);
+
+    try {
+        await setupHighlightUI();
+
+        // Rest of your dashboard setup
         if (unsubscribeOngoing) unsubscribeOngoing();
-
-        // Set up the ongoing tasks listener which is not date-specific
         unsubscribeOngoing = setupOngoingTasksListener(currentUserId, (tasks) => {
             ongoingTasksData = tasks;
             renderOngoingTasks(tasks);
-            // Recalculate today's performance when the ongoing data changes
             refreshPerformanceSummary();
         });
 
@@ -481,16 +581,17 @@ function createActivityCard(activity) {
             userNameSpan.textContent = userData.name || user.displayName || 'User';
             userClientSpan.textContent = userData.client || 'N/A';
             userPositionSpan.textContent = userData.position || 'N/A';
-        } else {
-            userNameSpan.textContent = user.displayName || 'User';
-            userClientSpan.textContent = 'N/A';
-            userPositionSpan.textContent = 'N/A';
         }
 
-        updateUI(user.uid, new Date());
+        await updateUI(user.uid, new Date());
         renderCalendar();
+    } catch (error) {
+        console.error("Dashboard initialization failed:", error);
+        showNotification('Failed to initialize dashboard', 'error');
     }
+}
 
+    // Event Listeners
     authForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = authEmailInput.value;
@@ -570,25 +671,27 @@ function createActivityCard(activity) {
         selectedDate = new Date();
         currentCalendarDate = new Date();
         updateUI(currentUserId, selectedDate);
+        updateHighlightManagerDate(selectedDate);
         renderCalendar();
         calendarPopup.style.display = 'none';
     });
 
     document.addEventListener('click', (e) => {
-        if (!calendarPopup.contains(e.target) && e.target !== dateDisplay && e.target.closest('#calendar-popup') === null) {
-            calendarPopup.style.display = 'none';
-        }
-    });
+        const isClickInsideDropdown = e.target.closest('.status-dropdown');
+        const isClickInsideEditButton = e.target.closest('.edit-btn');
+        const isClickInsideEditingInput = e.target.closest('.edit-input') || e.target.closest('.edit-textarea');
+        const isClickInsideHighlight = e.target.closest('#highlight-text') || e.target.closest('#highlight-edit-btn');
+        
+        if (!isClickInsideDropdown && !isClickInsideEditButton && !isClickInsideEditingInput && !isClickInsideHighlight) {
+            document.querySelectorAll('.status-dropdown.show').forEach(dropdown => {
+                dropdown.classList.remove('show');
+            });
 
-    plusButtons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const statusCard = e.target.closest('.metric');
-            if (statusCard) {
-                modalStatus = statusCard.dataset.today;
-                addActivityModal.querySelector('.modal-title').textContent = `Add a new activity`;
-                addActivityModal.style.display = 'flex';
-            }
-        });
+            // Revert any active edit modes (excluding highlight)
+            document.querySelectorAll('.edit-btn[data-editing="true"]').forEach(async editBtn => {
+                // ... existing edit button handling code ...
+            });
+        }
     });
 
     document.querySelector('#add-activity-modal .modal-close-btn').addEventListener('click', () => {
@@ -600,13 +703,34 @@ function createActivityCard(activity) {
             closeActivityModal();
         }
     });
+    plusButtons.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const statusCard = e.target.closest('.metric');
+        if (statusCard) {
+            modalStatus = statusCard.dataset.today;
+            document.querySelector('#add-activity-modal .modal-title').textContent = `Add ${statusCard.dataset.today} activity`;
+            addActivityModal.style.display = 'flex';
+            activityInput.focus();
+        }
+    });
+});
+
+
+
 
     addActivityBtn.addEventListener('click', addNewActivity);
 
     document.querySelector('.ongoing-tasks-header').addEventListener('click', () => {
         const content = document.querySelector('.ongoing-tasks-content');
         const toggleBtn = document.querySelector('.collapse-toggle');
+        content.classList.toggle('collapsed');
+        toggleBtn.classList.toggle('collapsed');
+    });
 
+    document.querySelector('.collapse-toggle').addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent bubbling if needed
+        const content = document.querySelector('.ongoing-tasks-content');
+        const toggleBtn = document.querySelector('.collapse-toggle');
         content.classList.toggle('collapsed');
         toggleBtn.classList.toggle('collapsed');
     });
@@ -614,7 +738,6 @@ function createActivityCard(activity) {
     setupAuthChangeListener(
         (user) => {
             if (user) {
-                // Set the selected date to today when the user logs in or refreshes
                 selectedDate = new Date();
                 currentCalendarDate = new Date();
                 showDashboard(user);
@@ -769,7 +892,7 @@ function createActivityCard(activity) {
                             textInputElement.replaceWith(newTextElement);
                             descriptionInputElement.replaceWith(newDescriptionElement);
                             editIcon.classList.remove('fa-save');
-                            editIcon.classList.add('fa-edit');
+                            editIcon.classList.add('fa.edit');
                             editBtn.style.backgroundColor = 'var(--primary-color)';
                             editBtn.dataset.editing = 'false';
                         }
@@ -813,7 +936,7 @@ function createActivityCard(activity) {
                     textInputElement.replaceWith(newTextElement);
                     descriptionInputElement.replaceWith(newDescriptionElement);
                     editIcon.classList.remove('fa-save');
-                    editIcon.classList.add('fa-edit');
+                    editIcon.classList.add('fa.edit');
                     editBtn.style.backgroundColor = 'var(--primary-color)';
                 }
             }
@@ -825,11 +948,16 @@ function createActivityCard(activity) {
             e.preventDefault();
             e.stopPropagation();
             const card = e.target.closest('.daily-report-card');
+            // Add a check to ensure the card was found before proceeding.
+            if (!card) {
+                console.error("Could not find the parent daily-report-card for deletion.");
+                showNotification("Could not find the task to delete.", 'error');
+                return; 
+            }
             const activity = JSON.parse(card.dataset.activity);
             const status = activity.status;
             const originalCardHTML = card.innerHTML;
             const originalParent = card.parentElement;
-
             // Optimistically remove the card
             card.remove();
 
@@ -844,7 +972,7 @@ function createActivityCard(activity) {
                 showNotification('Activity deleted successfully!');
             } catch (error) {
                 showNotification('Failed to delete activity: ' + error.message, 'error');
-                // Revert the UI on failure
+                // Revert UI on failure
                 originalParent.appendChild(card);
                 card.innerHTML = originalCardHTML;
                 // Revert the overall performance counter
@@ -996,7 +1124,7 @@ function createActivityCard(activity) {
                             textInputElement.replaceWith(newTextElement);
                             descriptionInputElement.replaceWith(newDescriptionElement);
                             editIcon.classList.remove('fa-save');
-                            editIcon.classList.add('fa-edit');
+                            editIcon.classList.add('fa.edit');
                             editBtn.style.backgroundColor = 'var(--primary-color)';
                             editBtn.dataset.editing = 'false';
                         }
@@ -1040,18 +1168,25 @@ function createActivityCard(activity) {
                     textInputElement.replaceWith(newTextElement);
                     descriptionInputElement.replaceWith(newDescriptionElement);
                     editIcon.classList.remove('fa-save');
-                    editIcon.classList.add('fa-edit');
+                    editIcon.classList.add('fa.edit');
                     editBtn.style.backgroundColor = 'var(--primary-color)';
                 }
             }
             return;
         }
+        
 
         const deleteBtn = e.target.closest('.delete-btn');
         if (deleteBtn) {
             e.preventDefault();
             e.stopPropagation();
             const card = e.target.closest('.daily-report-card');
+            // Add a check to ensure the card was found before proceeding.
+            if (!card) {
+                console.error("Could not find the parent daily-report-card for deletion.");
+                showNotification("Could not find the task to delete.", 'error');
+                return;
+            }
             const activity = JSON.parse(card.dataset.activity);
             const status = activity.status;
             const originalCardHTML = card.innerHTML;
@@ -1084,60 +1219,18 @@ function createActivityCard(activity) {
         }
     });
 
-    document.addEventListener('click', (e) => {
-        const isClickInsideDropdown = e.target.closest('.status-dropdown');
-        const isClickInsideEditButton = e.target.closest('.edit-btn');
-        const isClickInsideEditingInput = e.target.closest('.edit-input') || e.target.closest('.edit-textarea');
-        if (!isClickInsideDropdown && !isClickInsideEditButton && !isClickInsideEditingInput) {
-            document.querySelectorAll('.status-dropdown.show').forEach(dropdown => {
-                dropdown.classList.remove('show');
-            });
+    document.addEventListener('click', function(event) {
+        const calendarPopup = document.querySelector('.calendar-popup');
+        const dateDisplay = document.getElementById('date-display');
+        if (!calendarPopup) return;
 
-            // Revert any active edit modes
-            document.querySelectorAll('.edit-btn[data-editing="true"]').forEach(async editBtn => {
-                const card = editBtn.closest('.daily-report-card');
-                const activity = JSON.parse(card.dataset.activity);
-                const textInputElement = card.querySelector('.edit-input');
-                const descriptionInputElement = card.querySelector('.edit-textarea');
-                const editIcon = editBtn.querySelector('i');
-                const collectionName = (activity.status === 'done' || activity.status === 'cancelled') ? 'dailyReports' : 'ongoingTasks';
-
-                if (textInputElement && descriptionInputElement) {
-                    const newText = textInputElement.value;
-                    const newDescription = descriptionInputElement.value;
-
-                    if (newText && newText.trim() !== '') {
-                        if (newText !== activity.text || newDescription !== activity.description) {
-                            try {
-                                await updateActivityContent(currentUserId, activity.id, collectionName, newText, newDescription);
-                                showNotification('Activity updated successfully!');
-                            } catch (error) {
-                                showNotification('Failed to update activity: ' + error.message, 'error');
-                                // Revert the text in the input field on failure
-                                textInputElement.value = activity.text;
-                                descriptionInputElement.value = activity.description;
-                            }
-                        }
-                    }
-
-                    const newTextElement = document.createElement('span');
-                    newTextElement.className = 'activity-text';
-                    newTextElement.textContent = textInputElement.value;
-                    const newDescriptionElement = document.createElement('span');
-                    newDescriptionElement.className = 'activity-description';
-                    newDescriptionElement.textContent = descriptionInputElement.value;
-
-                    textInputElement.replaceWith(newTextElement);
-                    descriptionInputElement.replaceWith(newDescriptionElement);
-                }
-
-                if (editIcon) {
-                    editIcon.classList.remove('fa-save');
-                    editIcon.classList.add('fa-edit');
-                }
-                editBtn.style.backgroundColor = 'var(--primary-color)';
-                editBtn.dataset.editing = 'false';
-            });
+        // If the popup is open and the click is outside both the popup and the button
+        if (
+            calendarPopup.style.display === 'block' &&
+            !calendarPopup.contains(event.target) &&
+            (!dateDisplay || !dateDisplay.contains(event.target))
+        ) {
+            calendarPopup.style.display = 'none';
         }
     });
 });
