@@ -27,6 +27,9 @@ import {
     deleteDoc,
     writeBatch
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+import {
+    getStorage
+} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js"; // <-- ADD THIS LINE
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -42,6 +45,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app); // <-- ADD THIS LINE
 
 // Authentication Functions
 export const registerUser = (email, password) => {
@@ -302,5 +306,7 @@ export const setupOngoingTasksListener = (userId, callback) => {
 };
 
 export {
-    db
+    auth,
+    db,
+    storage // <-- ADD THIS LINE
 };
