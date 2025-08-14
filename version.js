@@ -9,6 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Define your version changes as a more structured object for easier filtering
     const versionChanges = {
+        'v2.1': ['Improve database structure.',
+                'Highlight feature is added where users can now highlight their daily report.',
+        ],
         'v2.0': ['Improve server response time for fast and more efficient task managing.',
                 'Implemented code caching to speed up recurring tasks.',
                 'Edit button is added where users can now edit a task informations.',
