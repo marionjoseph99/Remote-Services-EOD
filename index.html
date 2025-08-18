@@ -19,7 +19,6 @@
     </button>
 </div>
 
-
 <div id="version-modal" class="modal-overlay" role="dialog" aria-labelledby="version-history-title">
     <div class="chatbot-modal">
         <div class="chatbot-header">
@@ -33,13 +32,11 @@
             <button class="vbtn" data-version="v1.0">V1.0</button>
         </div>
         <div id="version-messages" class="chatbot-messages">
-            </div>
+        </div>
     </div>
 </div>
 
-<body data-theme="material">
-    
-    
+<body data-theme="material"> 
     <div id="auth-container" class="auth-container">
         
         <div class="auth-card">
@@ -216,6 +213,22 @@
 
 <div id="notification-container"></div>
 
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCfxO30dG_Tdgloom7bq0RSdTfymsi-iCc",
+  authDomain: "kg-stevens-eod.firebaseapp.com",
+  projectId: "kg-stevens-eod",
+  storageBucket: "kg-stevens-eod.appspot.com",
+  messagingSenderId: "600225486867",
+  appId: "1:600225486867:web:b9b567559017be3d4c47e6"
+};
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+</script>
     <script type="module" src="script.js"></script>
     <script type="module" src="version.js"></script>
     <script type="module" src="highlight.js"></script>
