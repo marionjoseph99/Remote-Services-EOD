@@ -96,7 +96,7 @@ body {
 
 .performance-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 0.7rem;
 }
 .performance-grid-2 {
@@ -127,9 +127,10 @@ body {
 }
 
 .metric .value {
-    font-size: 3rem;
+    font-size: 2.5rem;
     font-weight: 900;
     margin-top: 0.6rem;
+    word-break: break-all;
 }
 
 .metric.green { background-color: var(--done-bg); }
@@ -420,11 +421,36 @@ i {
     margin: 0;
 }
 
+/* Ensure at least 2 notes per row for highlights and inquiries */
+#highlights-list,
+#inquiries-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr)); /* at least two columns */
+    gap: .7rem;
+}
+@media (min-width: 900px) {
+    #highlights-list,
+    #inquiries-list {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* expand gracefully on wide screens */
+    }
+}
+@media (max-width: 480px) {
+    #highlights-list,
+    #inquiries-list {
+        grid-template-columns: 1fr; /* single column on very small screens for readability */
+    }
+}
+
+/* Notes specific colors */
+.note-card.highlight-note { background-color: #f2f9ff; border: 1px solid #d7e8ff; }
+.note-card.inquiry-note { background-color: #fff5f5; border: 1px solid #ffd7d7; }
+
+/* Keep existing card style block below */
 .daily-report-card, .task-item {
     position: relative;
     padding: 0.5rem;
     border-radius: 10px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    box-shadow: none; /* flat cards */
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -492,10 +518,15 @@ i {
 
 .daily-report-card .controls, .task-item .controls {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end; /* default: push actions to the right */
     align-items: center;
     width: 100%;
     margin-top: 0.5rem;
+}
+/* Ensure status dropdown is left-aligned within controls */
+.daily-report-card .controls .status-dropdown,
+.task-item .controls .status-dropdown {
+    margin-right: auto; /* pushes the rest (buttons) to the right */
 }
 .daily-report-card .card-buttons, .task-item .card-buttons {
     display: flex;
@@ -516,13 +547,9 @@ i {
     align-items: center;
     justify-content: center;
 }
-.daily-report-card .delete-btn:hover, .task-item .delete-btn:hover {
-    background-color: #c0392b;
-    transform: scale(1.1);
-}
 
-.daily-report-card .edit-btn, .task-item .edit-btn {
-    background-color: var(--primary-color);
+.edit-btn {
+    background-color: var(--done-dp);
     color: #fff;
     border: none;
     width: 30px;
@@ -535,10 +562,14 @@ i {
     align-items: center;
     justify-content: center;
 }
-.daily-report-card .edit-btn:hover, .task-item .edit-btn:hover {
-    background-color: #2c347b;
+.daily-report-card .delete-btn:hover, .task-item .delete-btn:hover {
+    background-color: #c0392b;
     transform: scale(1.1);
 }
+
+/* Hide inline edit/delete for notes (moved to modal) */
+.note-card .edit-btn,
+.note-card .delete-btn { display: none !important; }
 
 /* Custom Dropdown for Status */
 .status-dropdown {
@@ -773,12 +804,32 @@ i {
     }
     .main-content-wrapper {
         flex-direction: row;
+        align-items: flex-start; /* Align items to the top */
     }
     .left-panel {
         width: 40%;
+        position: sticky;
+        top: 10px; /* Adjust as needed */
     }
     .right-panel {
-        width: 60%
+        width: 60%;
+        max-height: calc(100vh - 20px); /* Make right panel scrollable */
+        overflow-y: auto;
+    }
+}
+
+/* On smaller screens, stack the panels */
+@media (max-width: 767px) {
+    .main-content-wrapper {
+        flex-direction: column;
+    }
+    .left-panel, .right-panel {
+        width: 100%;
+        max-height: none; /* Reset max-height */
+        overflow-y: visible; /* Reset overflow */
+    }
+    .left-panel {
+        position: static; /* Reset sticky position */
     }
 }
 
@@ -1174,10 +1225,6 @@ i {
     align-items: center;
     justify-content: center;
 }
-.highlight-edit-btn:hover {
-    background-color: #2c347b;
-    transform: scale(1.1);
-}
 
 .highlight-save-btn {
     background-color: var(--done-text);
@@ -1238,55 +1285,33 @@ i {
 
 
 
-/* Make Quill toolbar and editor use Lexend font */
-.ql-toolbar,
-.ql-container,
-.ql-editor {
-    font-family: 'Lexend', Arial, sans-serif !important;
+
+
+.daily-report-card {
+    gap: 0.5rem;
+    margin: 0.5rem 0;
 }
 
-/* Quill toolbar custom styles */
-.ql-toolbar {
-    background: #f8f9fa;
-    border: 1px solid #bfc8e6;
-    border-bottom: none;
-    border-radius: 8px 8px 0 0;
-    padding: 0.5rem 0.75rem;
-    font-family: 'Lexend', Arial, sans-serif;
+#save-note-btn, #delete-note-btn {
+    width: 100%;
+    height: 40px;
 }
 
-.ql-toolbar .ql-formats {
-    margin-right: 1rem;
-}
-
-.ql-toolbar button,
-.ql-toolbar .ql-picker-label,
-.ql-toolbar .ql-picker-item {
-    color: #2c347b;
-    border-radius: 4px;
-    transition: background 0.2s, color 0.2s;
-}
-
-.ql-toolbar button:hover,
-.ql-toolbar .ql-picker-label:hover,
-.ql-toolbar .ql-picker-item:hover {
-    background: #e3e7fa;
-    color: #1a237e;
-}
-
-.ql-toolbar button.ql-active,
-.ql-toolbar .ql-picker-label.ql-active {
-    background: #2c347b;
+#add-highlight-btn {
+    margin-top: 0.5rem;
+    background-color: var(--not-started-dp);
     color: #fff;
 }
 
-.ql-toolbar .ql-picker {
-    font-family: 'Lexend', Arial, sans-serif;
+#add-inquiry-btn {
+    margin-top: 0.5rem;
+    background-color: var(--cancelled-dp);
+    color: #fff;
 }
 
-.ql-toolbar .ql-picker-options {
-    background: #fff;
-    border: 1px solid #bfc8e6;
-    border-radius: 4px;
-    font-family: 'Lexend', Arial, sans-serif;
+
+.note-text {
+    font-size: 0.85rem;
+    color: var(--primary-color);
 }
+
