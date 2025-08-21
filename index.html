@@ -65,7 +65,7 @@
             <div class="left-panel">
                 <div class="header-row">
                     <div class="date-picker-container">
-                        <button id="date-display">Calendar</button>
+                        <button id="date-display" type="button" aria-haspopup="dialog" aria-expanded="false">Calendar</button>
                         <div id="calendar-popup" class="calendar-popup">
                             <div class="calendar-header">
                                 <button id="prev-month-btn">&lt;</button>
@@ -86,7 +86,12 @@
                             <button id="today-btn" class="today-btn">Today</button> <!-- Add this line -->
                         </div>
                     </div>
-                    <button id="logout-btn" class="logout-btn">Logout</button>
+                    <div style="display:flex; gap:.5rem; align-items:center;">
+                      <button id="generate-report-btn" class="logout-btn" title="Generate Daily Report">
+                        Generate Report
+                      </button>
+                      <button id="logout-btn" class="logout-btn">Logout</button>
+                    </div>
                     
                 </div>
 
@@ -116,28 +121,23 @@
                         </div>
                     </div>
                 </div>
+                <!-- Highlights (cards) -->
                 <div class="highlights-section">
-    <div class="highlights-header">
-        <span>Today's Highlight</span>
-    </div>
-    <div class="highlight-content">
-        <div id="highlight-display" class="highlight-display"></div>
-        <div id="highlight-editor" class="highlight-edit" style="display: none;">
-            <div id="highlight-quill"></div>
-        </div>
-        <div class="highlight-actions">
-            <button id="highlight-edit-btn" class="highlight-edit-btn">
-                <i class="fas fa-edit"></i>
-            </button>
-            <button id="highlight-save-btn" class="highlight-save-btn" style="display: none;">
-                <i class="fas fa-save"></i>
-            </button>
-            <button id="highlight-cancel-btn" class="highlight-cancel-btn" style="display: none;">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    </div>
-</div>
+                  <div class="highlights-header" style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;">
+                    <span>Today's Highlights</span>
+                    <button id="add-highlight-btn" class="vbtn" style="padding:.35rem .8rem;"><i class="fas fa-plus"></i> Add Notes</button>
+                  </div>
+                  <div id="highlights-list" class="daily-activities-grid"></div>
+                </div>
+
+                <!-- Inquiries / Challenges (cards) -->
+                <div class="highlights-section">
+                  <div class="highlights-header" style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;">
+                    <span>Inquiries / Challenges</span>
+                    <button id="add-inquiry-btn" class="vbtn" style="padding:.35rem .8rem;"><i class="fas fa-plus"></i> Add Notes</button>
+                  </div>
+                  <div id="inquiries-list" class="daily-activities-grid"></div>
+                </div>
             </div>
             
             <div class="right-panel">
@@ -195,6 +195,19 @@
             </div>
         </div>
     </div>
+
+    <!-- Note Modal (for Highlights and Inquiries) -->
+    <div id="note-modal" class="add-activity-modal" style="display:none;">
+        <div class="modal-content">
+            <span id="note-modal-close" class="modal-close-btn" aria-label="Close note modal">&times;</span>
+            <h3 id="note-modal-title" class="modal-title">Add Note</h3>
+            <textarea id="note-text-input" class="edit-textarea" placeholder="Write your note here..." style="min-height:120px;"></textarea>
+            <div style="display:flex; gap:.5rem; justify-content:flex-end;">
+              <button id="delete-note-btn" class="highlight-cancel-btn" style="display:none;">Delete</button>
+              <button id="save-note-btn">Save</button>
+            </div>
+        </div>
+    </div>
     
 
     <div id="add-activity-modal" class="add-activity-modal">
@@ -233,5 +246,8 @@ if (!firebase.apps.length) {
     <script type="module" src="version.js"></script>
     <script type="module" src="highlight.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js"></script>
+    <!-- Export helpers -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 </body>
 </html>
