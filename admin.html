@@ -996,7 +996,10 @@ body.admin-page {
     const auth = firebase.auth();
     const db = firebase.firestore();
     // Example: Assume admin UIDs are in this array (replace with your logic)
-    const ADMIN_UIDS = ["0MbDZJCVZoXglO2t0CUGyU3krEa2"];
+    const ADMIN_UIDS = [
+  "0MbDZJCVZoXglO2t0CUGyU3krEa2",
+  "tcwVw2wAuBZ3Ln3aSnewrjyOy793" // <-- Added new admin UID
+];
     auth.onAuthStateChanged(user => {
         if (user && ADMIN_UIDS.includes(user.uid)) {
             document.getElementById('admin-dashboard').style.display = 'block';
