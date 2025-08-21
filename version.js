@@ -9,6 +9,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Define your version changes as a more structured object for easier filtering
     const versionChanges = {
+        'v3.0': ['Added Inquiries feature to manage daily inquiries or challenges.',
+                'Highlight feature is now more robust with better error handling.',
+                'Improved error handling for loading and saving content in both highlights and inquiries.',
+                'Admin can now manage everything in the system.',
+        ],
         'v2.1': ['Improve database structure.',
                 'Highlight feature is added where users can now highlight their daily report.',
         ],

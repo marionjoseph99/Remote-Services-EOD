@@ -26,8 +26,9 @@
             <button class="modal-close-btn" aria-label="Close version history">&times;</button>
         </div>
         <div id="version-button-container" class="version-btn">
-            <button class="vbtn active" data-version="v2.1">V2.1 Latest Version</button>
-            <button class="vbtn active" data-version="v2.0">V2.0</button>
+            <button class="vbtn active" data-version="v3.0">V3.0 Latest Version</button>
+            <button class="vbtn" data-version="v2.1">V2.1</button>
+            <button class="vbtn" data-version="v2.0">V2.0</button>
             <button class="vbtn" data-version="v1.1">V1.1</button>
             <button class="vbtn" data-version="v1.0">V1.0</button>
         </div>
@@ -226,6 +227,16 @@
 
 <div id="notification-container"></div>
 
+<div id="report-loading-modal" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:rgba(44,52,123,0.15);backdrop-filter:blur(2px);align-items:center;justify-content:center;">
+  <div style="background:#fff;padding:2rem 2.5rem;border-radius:16px;box-shadow:0 4px 24px #2c347b22;display:flex;flex-direction:column;align-items:center;gap:1rem;">
+    <div style="font-size:1.3rem;font-weight:600;color:#2c347b;">Generating EOD report...</div>
+    <div class="loader" style="border:4px solid #e0e4f7;border-top:4px solid #4956c6;border-radius:50%;width:36px;height:36px;animation:spin 1s linear infinite;"></div>
+  </div>
+</div>
+<style>
+@keyframes spin { 100% { transform: rotate(360deg); } }
+</style>
+
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -251,3 +262,13 @@ if (!firebase.apps.length) {
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 </body>
 </html>
+<!-- User Tasks Modal -->
+<div id="user-tasks-modal" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:rgba(44,52,123,0.15);backdrop-filter:blur(2px);align-items:center;justify-content:center;">
+  <div style="background:#fff;padding:2rem 2.5rem;border-radius:16px;box-shadow:0 4px 24px #2c347b22;min-width:320px;max-width:90vw;max-height:80vh;overflow:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <h3 id="user-tasks-modal-title" style="margin:0;font-size:1.2rem;color:#2c347b;">Tasks</h3>
+      <button id="user-tasks-modal-close" style="background:none;border:none;font-size:2rem;line-height:1;color:#4956c6;cursor:pointer;">&times;</button>
+    </div>
+    <div id="user-tasks-modal-body"></div>
+  </div>
+</div>

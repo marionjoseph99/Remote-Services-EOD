@@ -250,7 +250,7 @@ async function ensureMonthEntries(userId, year, month) {
 
     async function generateDailyReport() {
       try {
-        // Gather data by hierarchy
+        // Gather data
         const ongoing = (ongoingTasksData || [])
           .filter(t => t.status === 'wip' || t.status === 'not-started')
           .map(t => t.description ? `${t.text} — ${t.description}` : `${t.text}`);
@@ -264,59 +264,104 @@ async function ensureMonthEntries(userId, year, month) {
 
         const reportRoot = document.createElement('div');
         reportRoot.id = 'report-canvas';
-        // Inject a scoped stylesheet that uses variables from style.css
-        const styleEl = document.createElement('style');
-        styleEl.textContent = `
-          @page { margin: 24pt; }
-          #report-canvas {
-            background: var(--card-bg-color);
-            color: var(--text-color);
-            padding: 20px;
-            width: 820px;
-            box-sizing: border-box;
-            font-family: 'Lexend', Arial, sans-serif;
-          }
-          .r-header {
-            display:flex;justify-content:space-between;align-items:center;
-            padding:12px 14px;border:1px solid var(--border-color);border-radius:12px;margin-bottom:12px;
-            background: var(--background-color);
-          }
-          .r-title-main { font-size:18px;font-weight:800;margin:0;color:var(--primary-color); }
-          .r-sub { font-size:12px;opacity:.85;margin:0; }
-          .r-section {
-            border:1px solid var(--border-color);border-radius:12px;padding:10px 12px;margin:12px 0;
-            background: var(--card-bg-color);
-          }
-          .r-title { margin:0 0 6px 0;font-size:14px;font-weight:800;color:var(--primary-color); }
-          .r-section.ongoing { border-left: 4px solid var(--not-started-text); }
-          .r-section.completed { border-left: 4px solid var(--done-text); }
-          .r-section.highlight { border-left: 4px solid var(--primary-color); }
-          .r-section.inquiry { border-left: 4px solid var(--cancelled-text); }
-          .r-list { margin:0;padding-left:18px;font-size:12px;line-height:1.4; }
-          .r-list li { margin: 3px 0; }
+        reportRoot.innerHTML = `
+          <style>
+            .eod-report-container {
+              max-width:700px;
+              margin:2rem auto;
+              padding:2rem;
+              background:#f8fafd;
+              border-radius:18px;
+              box-shadow:0 6px 32px #2c347b15;
+              font-family:'Lexend',Arial,sans-serif;
+            }
+            .eod-header {
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+            }
+            .eod-header .eod-title {
+              color:#2c347b;
+              font-size:2rem;
+              font-weight:800;
+              margin:0;
+            }
+            .eod-header .eod-date {
+              color:#7a7e9a;
+              font-size:1.1rem;
+              margin-bottom:.5rem;
+            }
+            .eod-header .eod-user {
+              text-align:right;
+            }
+            .eod-header .eod-user div {
+              color:#4956c6;
+              font-weight:700;
+              font-size:1.1rem;
+            }
+            .eod-section {
+              margin-bottom:1.5rem;
+            }
+            .eod-section-title {
+              font-weight:700;
+              font-size:1.15rem;
+              margin-bottom:.5rem;
+            }
+            .eod-section.ongoing .eod-section-title { color:#1e88e5; }
+            .eod-section.completed .eod-section-title { color:#43a047; }
+            .eod-section.highlight .eod-section-title { color:#3949ab; }
+            .eod-section.inquiry .eod-section-title { color:#d32f2f; }
+            .eod-section ul {
+              margin:.5rem 0 0 1.2rem;
+              padding:0;
+              color:#444;
+            }
+            .eod-section li {
+              margin-bottom:.3rem;
+            }
+            .eod-footer {
+              text-align:right;
+              color:#b0b4c3;
+              font-size:.95rem;
+              margin-top:2rem;
+            }
+          </style>
+          <div class="eod-report-container">
+            <div class="eod-header">
+              <div>
+                <img src="logo.png" alt="Company Logo" style="height:40px;margin-bottom:8px;">
+                <div class="eod-title">End of the Day Report</div>
+                <div class="eod-date">${formatDate(selectedDate)}</div>
+              </div>
+              <div class="eod-user">
+                <div>${userNameSpan?.textContent || 'User'}</div>
+                <div style="color:#7a7e9a;">${userClientSpan?.textContent || ''}</div>
+                <div style="color:#7a7e9a;">${userPositionSpan?.textContent || ''}</div>
+              </div>
+            </div>
+            <hr style="border:none;border-top:2px solid #e0e4f7;margin:1.5rem 0;">
+            <div class="eod-section ongoing">
+              <div class="eod-section-title"><i class="fas fa-tasks"></i> Ongoing Tasks</div>
+              <ul>${ongoing.length ? ongoing.map(t => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            </div>
+            <div class="eod-section completed">
+              <div class="eod-section-title"><i class="fas fa-check-circle"></i> Completed Tasks</div>
+              <ul>${completed.length ? completed.map(t => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            </div>
+            <div class="eod-section highlight">
+              <div class="eod-section-title"><i class="fas fa-star"></i> Today's Highlight</div>
+              <ul>${highlightsNotes.length ? highlightsNotes.map(t => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            </div>
+            <div class="eod-section inquiry">
+              <div class="eod-section-title"><i class="fas fa-question-circle"></i> Inquiries / Challenges</div>
+              <ul>${inquiriesNotes.length ? inquiriesNotes.map(t => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            </div>
+            <div class="eod-footer">
+              Generated on ${formatDate(new Date())}
+            </div>
+          </div>
         `;
-        reportRoot.appendChild(styleEl);
 
-        const header = document.createElement('div');
-        header.className = 'r-header';
-        const left = document.createElement('div');
-        left.innerHTML = `<div class="r-title-main">End of the Day Report</div>
-                          <div class="r-sub">${formatDate(selectedDate)}</div>`;
-        const right = document.createElement('div');
-        right.style.textAlign = 'right';
-        right.innerHTML = `<div class="r-sub">${userNameSpan?.textContent || 'User'}</div>
-                           <div class="r-sub">${userClientSpan?.textContent || ''}</div>
-                           <div class="r-sub">${userPositionSpan?.textContent || ''}</div>`;
-        header.appendChild(left);
-        header.appendChild(right);
-
-        reportRoot.appendChild(header);
-        reportRoot.appendChild(buildReportSection('Ongoing Tasks', ongoing, 'ongoing'));
-        reportRoot.appendChild(buildReportSection('Completed Tasks', completed, 'completed'));
-        reportRoot.appendChild(buildReportSection("Today's Highlight", highlightsNotes, 'highlight'));
-        reportRoot.appendChild(buildReportSection('Inquiries / Challenges', inquiriesNotes, 'inquiry'));
-
-        // attach temporarily to DOM for rendering
         document.body.appendChild(reportRoot);
 
         const canvas = await window.html2canvas(reportRoot, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
@@ -1564,4 +1609,73 @@ firebase.auth().onAuthStateChanged(user => {
     });
 
     // Global outside-click handler removed; initAdminCalendar already registers a scoped handler.
+
+    function showUserTasksModal(title, html) {
+  const modal = document.getElementById('user-tasks-modal');
+  document.getElementById('user-tasks-modal-title').textContent = title;
+  document.getElementById('user-tasks-modal-body').innerHTML = html;
+  modal.style.display = 'flex';
+}
+function hideUserTasksModal() {
+  document.getElementById('user-tasks-modal').style.display = 'none';
+}
+document.getElementById('user-tasks-modal-close').onclick = hideUserTasksModal;
+window.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') hideUserTasksModal();
+});
+function getWeekNumber(date) {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + 4 - (d.getDay()||7));
+  const yearStart = new Date(d.getFullYear(),0,1);
+  return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+}
+function groupTasksByWeek(tasks) {
+  const grouped = {};
+  tasks.forEach(task => {
+    const date = new Date(task.date || task.completionDate || task.creationDate);
+    const year = date.getFullYear();
+    const week = getWeekNumber(date);
+    const key = `${year}-W${week}`;
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(task);
+  });
+  return grouped;
+}
+function buildUserTasksModalHtml(tasks, statusLabel) {
+  if (!tasks.length) return `<div style="color:#7a7e9a;">No tasks found.</div>`;
+  const grouped = groupTasksByWeek(tasks);
+  const weekKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+  return weekKeys.map(week => `
+    <div style="margin-bottom:1.2rem;">
+      <div style="font-weight:600;color:#4956c6;margin-bottom:.3rem;">${week}</div>
+      <ul style="margin:0 0 0 1.2rem;padding:0;">
+        ${grouped[week].map(task => `
+          <li style="margin-bottom:.5rem;">
+            <div style="font-weight:500;">${task.text || task.title || ''}</div>
+            ${task.description ? `<div style="color:#7a7e9a;font-size:.95rem;">${task.description}</div>` : ''}
+            <div style="font-size:.85rem;color:#b0b4c3;">${task.date || task.completionDate || task.creationDate || ''}</div>
+          </li>
+        `).join('')}
+      </ul>
+    </div>
+  `).join('');
+}
+
+// Task metrics (overall performance) sections: show user tasks on click
+document.querySelectorAll('.performance-section .metric').forEach(metric => {
+  metric.addEventListener('click', function() {
+    const status = this.dataset.status; // e.g. 'done', 'wip', 'not-started', 'cancelled'
+    // You must fetch/filter the user's tasks for this status:
+    // Example: getUserTasks() should return all tasks for the current user
+    const allTasks = getUserTasks(); // Implement this function based on your data structure
+    let filtered = [];
+    if (status === 'done') filtered = allTasks.filter(t => t.status === 'done');
+    else if (status === 'wip') filtered = allTasks.filter(t => t.status === 'wip');
+    else if (status === 'not-started') filtered = allTasks.filter(t => t.status === 'not-started');
+    else if (status === 'cancelled') filtered = allTasks.filter(t => t.status === 'cancelled');
+    const html = buildUserTasksModalHtml(filtered, status);
+    showUserTasksModal(this.textContent.trim(), html);
+  });
+});
 });
