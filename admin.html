@@ -19,6 +19,7 @@
             min-height: 100vh;
             font-family: 'Lexend', Arial, sans-serif !important;
             margin: 0;
+            overflow-x: hidden; /* prevent any horizontal bleed on small screens */
         }
         #admin-dashboard {
             max-width: 1300px;
@@ -34,6 +35,9 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 0rem;
+            position: sticky;
+            top: 10px;
+            z-index: 5;
         }
         .admin-header-card .date-btn,
         .admin-header-card .logout-btn {
@@ -91,7 +95,6 @@
             border-radius: 16px;
             padding: 1.2rem 1.3rem 1.1rem 1.3rem;
             background: #fff;
-            box-shadow: 0 2px 8px #2c347b0a;
             transition: box-shadow 0.18s, transform 0.18s;
             min-width: 0;
             display: flex;
@@ -101,15 +104,24 @@
         .user-summary-card:hover {
             box-shadow: 0 6px 20px #2c347b22;
         }
+        /* Card entrance animation */
+        @keyframes adminCardIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .user-summary-card {
+            animation: adminCardIn .28s ease both;
+        }
         .user-summary-card h3 {
             margin-top: 0;
             color: #2c347b;
             font-size: 1.15rem;
             font-weight: 700;
             letter-spacing: 0.2px;
+            margin-block-end: 0;
         }
         .user-summary-card .user-position {
-            margin: .5rem 0 0.9rem .7rem;
+            margin-left: .5rem; /* inline with name */
             color: #7a7e9a;
             font-size: 0.9rem;
             font-weight: 500;
@@ -126,14 +138,6 @@
         .user-summary-card .summary-value {
             font-weight: bold;
             color: #4956c6;
-        }
-        .user-summary-card .highlight {
-            background: #f7f8fd;
-            border-radius: 8px;
-            padding: 0.5rem 0.8rem;
-            margin-top: 0.5rem;
-            font-size: 0.98rem;
-            color: #2c347b;
         }
         #admin-error {
             color: #b71c1c;
@@ -156,40 +160,97 @@
         /* users-summary grid overrides removed */
 /* Admin user cards metrics layout fixes (no users-summary container) */
         .right-panel .user-summary-card {
-            overflow: hidden; /* contain inner grid and hover transforms */
+            overflow: visible; /* allow content (e.g., highlight) to show fully */
             width: 100%;
+            max-width: 100%;
+            box-sizing: border-box; /* ensure borders/padding never push beyond panel */
+            margin: 0; /* avoid unexpected extra width from margins */
         }
-        .performance-grid-2 {
-            margin-top: -1.2rem; /* align with card top */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-height: calc(100vh - 24px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 12px;          /* reserve space for scrollbar so cards aren’t cut */
+            scrollbar-gutter: stable both-edges;
+            min-width: 0;                 /* prevent flex-child overflow */
         }
         .right-panel .user-summary-card .performance-grid-2 {
             display: grid;
             width: 100%;
             box-sizing: border-box;
-            grid-template-columns: repeat(4, minmax(0, 1fr)); /* uniform columns */
-            gap: 0.7rem;
+            grid-template-columns: repeat(4, 1fr); /* single row: four equal tiles */
+            gap: .75rem;
+            align-items: stretch;
+            justify-items: stretch;
         }
         .right-panel .user-summary-card .metric {
             min-width: 0;    /* allow grid items to shrink without overflow */
-            padding: 0.8rem; /* slightly tighter padding to avoid overlap */
+            padding: 0.9rem;
+            border: 1px solid #e6e9f5;
+            border-radius: 12px;
+            box-sizing: border-box;
+            width: 100%;
+            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+            cursor: pointer;
+        }
+        .right-panel .user-summary-card .metric:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(44,52,123,0.12);
+            border-color: #dfe4fb;
+        }
+        .right-panel .user-summary-card .metric:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
         .right-panel .user-summary-card .metric .value {
             font-size: 1.8rem; /* smaller than dashboard metrics to fit inside card */
             line-height: 1.1;
             word-break: break-word;
         }
-        .right-panel .user-summary-card .highlight {
-            margin-top: 0.75rem;
-            overflow-wrap: anywhere; /* robust wrapping for long content */
-        }
-
         /* Responsive tweaks for admin user cards */
         @media (max-width: 900px) {
             .right-panel .user-summary-card .performance-grid-2 {
-                grid-template-columns: repeat(2, minmax(0, 1fr)); /* 2x2 layout on mobile to avoid overlap */
+                grid-template-columns: repeat(2, minmax(0, 1fr)); /* 2x2 layout on tablets/large phones */
             }
             .right-panel .user-summary-card .metric .value {
                 font-size: 1.5rem;
+            }
+        }
+        @media (max-width: 600px) {
+            .right-panel .user-summary-card .performance-grid-2 {
+                grid-template-columns: repeat(2, minmax(0, 1fr)); /* keep two columns when possible */
+                gap: .65rem;
+            }
+            .right-panel .user-summary-card .metric .value {
+                font-size: 1.35rem;
+            }
+        }
+        @media (max-width: 420px) {
+            .right-panel .user-summary-card .performance-grid-2 {
+                grid-template-columns: 1fr; /* single column on very small devices */
+            }
+            .right-panel .user-summary-card .metric .value {
+                font-size: 1.25rem;
+            }
+        }
+        @media (max-width: 600px) {
+            .right-panel .user-summary-card .performance-grid-2 {
+                grid-template-columns: repeat(2, minmax(0, 1fr)); /* keep two columns when possible */
+                gap: .65rem;
+            }
+            .right-panel .user-summary-card .metric .value {
+                font-size: 1.35rem;
+            }
+        }
+        @media (max-width: 420px) {
+            .right-panel .user-summary-card .performance-grid-2 {
+                grid-template-columns: 1fr; /* single column on very small devices */
+            }
+            .right-panel .user-summary-card .metric .value {
+                font-size: 1.25rem;
             }
         }
         /* View controls (Edit view) */
@@ -201,6 +262,7 @@
             justify-content: space-between;
             gap: .5rem;
             margin-bottom: .75rem;
+            flex-wrap: wrap; /* allow controls to wrap on small screens */
         }
         .edit-view-btn {
             background-color: var(--primary-color);
@@ -230,11 +292,13 @@
             left: 0;
             z-index: 1000;
             min-width: 260px;
+            max-width: min(420px, calc(100vw - 32px)); /* keep inside viewport on mobile */
             background: var(--card-bg-color);
             border: 1px solid var(--border-color);
             border-radius: 12px;
             padding: .75rem;
             box-shadow: 0 8px 24px rgba(0,0,0,.12);
+            box-sizing: border-box;
         }
         .user-filter-panel .filter-all {
             display: block;
@@ -251,7 +315,6 @@
             font-size: .9rem;
             color: var(--secondary-color);
         }
-
         /* Expanded card details styling */
         .user-summary-card.expanded {
             box-shadow: 0 6px 20px rgba(44, 52, 123, 0.15);
@@ -262,7 +325,6 @@
             border: 1px solid #e0e4f7;
             border-radius: 12px;
             padding: .75rem;
-
             /* collapsed by default with animation */
             max-height: 0;
             opacity: 0;
@@ -322,16 +384,20 @@
             color: var(--secondary-color);
             font-style: italic;
         }
-
         /* Mobile 50/50 panels */
         @media (max-width: 900px) {
             .main-content-wrapper {
-                flex-direction: row;
-                gap: .5rem;
+                flex-direction: column;   /* stack for mobile */
+                gap: .75rem;
             }
             .left-panel,
             .right-panel {
-                width: 50%;
+                width: 100%;
+            }
+            .right-panel {
+                max-height: none;         /* allow natural height on mobile */
+                overflow-y: visible;
+                padding-right: 0;
             }
         }
     /* Details modal (floating) with improved animations */
@@ -340,8 +406,8 @@
         position: fixed;
         inset: 0;
         background: rgba(0,0,0,.35);
-        backdrop-filter: blur(2px);
-        -webkit-backdrop-filter: blur(2px);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
         z-index: 2000;
         align-items: center;
         justify-content: center;
@@ -352,7 +418,6 @@
         opacity: 1;
     }
     .details-dialog {
-        background: var(--card-bg-color);
         width: min(960px, 92vw);
         max-height: 85vh;
         border-radius: 16px;
@@ -374,7 +439,6 @@
         justify-content: space-between;
         padding: .9rem 1.1rem;
         border-bottom: 1px solid var(--border-color);
-        background: linear-gradient(180deg, #f7f8fd 0%, #ffffff 100%);
     }
     #details-title {
         margin: 0;
@@ -400,6 +464,21 @@
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: .45rem .7rem;
+    }
+    /* Subtle scrollbars for modal and right panel */
+    .details-body::-webkit-scrollbar,
+    .right-panel::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    .details-body::-webkit-scrollbar-thumb,
+    .right-panel::-webkit-scrollbar-thumb {
+        background: #dfe4fb;
+        border-radius: 8px;
+    }
+    .details-body::-webkit-scrollbar-track,
+    .right-panel::-webkit-scrollbar-track {
+        background: transparent;
     }
     @media (max-width: 900px) {
         .details-body .details-list {
@@ -433,9 +512,366 @@
         color: var(--secondary-color);
         font-style: italic;
     }
-    </style>
+/* ===== Minimalist translucent redesign pass ===== */
+/* Background canvas gradient */
+body.admin-page {
+  background: #eef1f7;
+}
+/* Utility glass style applied per-component selectors below */
+@supports ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .glass {
+    background: rgba(255,255,255,.55);
+    -webkit-backdrop-filter: blur(10px) saturate(125%);
+    backdrop-filter: blur(10px) saturate(125%);
+    border: 1px solid rgba(255,255,255,.5);
+    box-shadow: 0 10px 30px rgba(44,52,123,.08);
+  }
+}
+/* Panels and cards get a subtle translucent look */
+.admin-header-card,
+.admin-user-info-card,
+.performance-section,
+.right-panel .user-summary-card,
+.user-filter-panel,
+.details-dialog,
+.calendar-popup {
+  background: rgb(255, 255, 255);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  backdrop-filter: blur(10px) saturate(120%);
+  border: 1px solid rgba(230,234,251,.8);
+  box-shadow: 0 12px 28px rgba(44,52,123,.10);
+}
+/* Calendar styles are sourced from style.css to avoid duplication */
+/* .calendar-popup override removed */
+/* Calendar day styling moved to style.css */
+/* Buttons (logout/date) to glass chip style */
+.logout-btn,
+#date-display,
+.edit-view-btn,
+.today-btn {
+  background: rgba(74,85,162,.85);
+  -webkit-backdrop-filter: blur(6px) saturate(130%);
+  backdrop-filter: blur(6px) saturate(130%);
+  border: 1px solid rgba(255,255,255,.35);
+  box-shadow: 0 6px 16px rgba(44,52,123,.18);
+}
+#date-display:hover,
+.logout-btn:hover,
+.edit-view-btn:hover,
+.today-btn:hover {
+  background: rgba(44,52,123,.92);
+}
+/* Left panel — minimalist glass redesign (ensures left panel is updated too) */
+.left-panel > div,
+.admin-header-card,
+.admin-user-info-card,
+.performance-section {
+  border-radius: 18px;
+}
+/* Left performance tiles: glass, minimalist, status-tinted */
+.left-panel .performance-section .metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(233,236,248,.9);
+  background: rgba(255,255,255,.66);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  backdrop-filter: blur(8px) saturate(120%);
+  box-shadow: 0 6px 18px rgba(44,52,123,.10);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease;
+  cursor: default;
+}
+.left-panel .performance-section .metric:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(44,52,123,.14);
+  border-color: rgba(223,228,251,1);
+}
+.left-panel .performance-section .metric p { margin: 0; }
+.left-panel .performance-section .metric .value {
+  font-size: 2.4rem;
+  line-height: 1.1;
+  font-weight: 900;
+}
+
+/* Status tints (subtle, minimalist) */
+.left-panel .performance-section .metric.green {
+  background: var(--done-bg) !important;
+  border-color: rgba(27,94,32,.20);
+}
+.left-panel .performance-section .metric.green .value { color: var(--done-text); }
+
+.left-panel .performance-section .metric.yellow {
+  background: var(--wip-bg) !important;
+  border-color: rgba(251,192,45,.28);
+}
+.left-panel .performance-section .metric.yellow .value { color: #8a6d00; }
+
+.left-panel .performance-section .metric.blue {
+  background: var(--not-started-bg) !important;
+  border-color: rgba(25,118,210,.26);
+}
+.left-panel .performance-section .metric.blue .value { color: var(--not-started-text); }
+
+.left-panel .performance-section .metric.orange {
+  background: var(--cancelled-bg) !important;
+  border-color: rgba(192,57,43,.26);
+}
+.left-panel .performance-section .metric.orange .value { color: var(--cancelled-text); }
+/* Header card spacing and chip feel for date/logout */
+.admin-header-card {
+  padding: 1rem 1.2rem;
+  gap: .75rem;
+}
+.date-picker-container #date-display {
+  font-weight: 700;
+  letter-spacing: .2px;
+}
+/* Section headings refinement */
+.performance-section h3 {
+  margin: 0 0 .6rem 0;
+  color: #2c347b;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+/* (duplicate removed in favor of enhanced design above) */
+/* Right-panel per-user metric tiles: status-tinted to match left panel (no gradients) */
+.right-panel .user-summary-card .metric {
+  /* use global .metric.green/yellow/blue/orange colors from style.css */
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 1px solid #e6e9f5;
+}
+.right-panel .user-summary-card .metric.green {
+  background: var(--done-bg);
+  border-color: rgba(27,94,32,.20);
+}
+.right-panel .user-summary-card .metric.green .value { color: var(--done-text); }
+
+.right-panel .user-summary-card .metric.yellow {
+  background: var(--wip-bg);
+  border-color: rgba(251,192,45,.28);
+}
+.right-panel .user-summary-card .metric.yellow .value { color: #8a6d00; }
+
+.right-panel .user-summary-card .metric.blue {
+  background: var(--not-started-bg);
+  border-color: rgba(25,118,210,.26);
+}
+.right-panel .user-summary-card .metric.blue .value { color: var(--not-started-text); }
+
+.right-panel .user-summary-card .metric.orange {
+  background: var(--cancelled-bg);
+  border-color: rgba(192,57,43,.26);
+}
+.right-panel .user-summary-card .metric.orange .value { color: var(--cancelled-text); }
+
+.right-panel .user-summary-card .metric p { margin: 0; }
+/* User card header line – keep minimalist */
+.user-summary-card h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .35rem;
+}
+.user-summary-card .user-position {
+  padding: .12rem .45rem;
+  border-radius: 9999px;
+  background: rgba(246,248,255,.9);
+  border: 1px solid rgba(230,234,251,.9);
+  color: #6670a6;
+  font-weight: 700;
+}
+/* Right column flow spacing */
+/* .right-panel gap consolidated above */
+/* Left metrics grid spacing refinement */
+.left-panel .performance-grid {
+  gap: 1rem;
+  grid-template-columns: repeat(4, 1fr); /* single row: four equal tiles */
+}
+/* Details modal: elevated card look, minimal */
+.details-dialog {
+  background: rgba(255,255,255,.62);
+  border: 1px solid rgba(233,236,248,.9);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+  backdrop-filter: blur(12px) saturate(130%);
+}
+.details-header {
+  background: #f7f8fd;
+}
+/* Modern task card styling */
+/* consolidated details section styles appear below */
+/* consolidated details list gap appears below */
+/* consolidated detail item style appears below */
+.details-body .detail-item:hover {
+  border-color: rgba(223,228,251,1);
+  box-shadow: 0 12px 28px rgba(44,52,123,.14);
+}
+/* Leading status dot & typography */
+.details-body .detail-item::before {
+  width: 10px;
+  height: 10px;
+  top: .9rem;
+  left: .6rem;
+}
+/* Subtle container rounding and spacing alignment */
+#admin-dashboard {
+  padding: .6rem 1rem 1.4rem 1rem;
+  border-radius: 24px;
+}
+.main-content-wrapper {
+  gap: 1.25rem;
+}
+/* Translucent scrollbar refinement (already present; slightly tuned) */
+.details-body::-webkit-scrollbar-thumb,
+.right-panel::-webkit-scrollbar-thumb {
+  background: rgba(223,228,251,.9);
+}
+/* Modal dialog refinements */
+    .details-dialog {
+        border: 1px solid #e9ecf8;
+        background: #ffffff;
+    }
+    .details-body {
+        padding: 1.1rem 1.2rem 1.2rem 1.2rem;
+    }
+    .details-body .details-section {
+        background: #f8faff;
+        border: 1px solid #eef1fb;
+        border-radius: 12px;
+        padding: .75rem .9rem;
+        box-shadow: 0 1px 6px rgba(44,52,123,.04);
+        margin-bottom: .8rem;
+    }
+    .details-body .details-section h4 {
+        margin: 0 0 .55rem 0;
+        font-size: 1rem;
+        color: #2c347b;
+        letter-spacing: .2px;
+    }
+    /* Task list (card style) */
+    .details-body .details-list {
+        gap: .55rem .8rem;
+    }
+    .details-body .detail-item {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: .25rem;
+        background: #fff;
+        border: 1px solid #e6e9f5;
+        border-radius: 14px;
+        padding: .7rem .9rem .75rem 1.25rem;
+        box-shadow: 0 2px 8px rgba(44,52,123,.06);
+        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .details-body .detail-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(44,52,123,.12);
+        border-color: #dfe4fb;
+    }
+    /* Leading status dot */
+    .details-body .detail-item::before {
+        content: '';
+        position: absolute;
+        left: .6rem;
+        top: .95rem;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #cbd5e1;
+    }
+    .details-body .detail-item.done::before { background: var(--done-text); }
+    .details-body .detail-item.wip::before { background: #8a6d00; }
+    .details-body .detail-item.not-started::before { background: var(--not-started-text); }
+    .details-body .detail-item.cancelled::before { background: var(--cancelled-text); }
+    .details-body .detail-item .activity-text {
+        font-weight: 800;
+        color: #2c347b;
+        font-size: .95rem;
+        line-height: 1.25rem;
+        margin: 0;
+    }
+    .details-body .detail-item .activity-description {
+        color: #4a55a2;
+        font-size: .86rem;
+        opacity: .95;
+        margin-top: .1rem;
+    }
+    /* Inline chips row (auto-detect by strong tags if present later) */
+    .details-body .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .35rem;
+        margin-top: .25rem;
+    }
+    .details-body .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .22rem .55rem;
+        border-radius: 9999px;
+        font-size: .75rem;
+        font-weight: 800;
+        border: 1px solid transparent;
+        background: #f2f4ff;
+        color: var(--primary-color);
+    }
+    .details-body .chip.done {
+        background: var(--done-bg); color: var(--done-text); border-color: #cfead0;
+    }
+    .details-body .chip.wip {
+        background: var(--wip-bg); color: #8a6d00; border-color: #fde39a;
+    }
+    .details-body .chip.not-started {
+        background: var(--not-started-bg); color: var(--not-started-text); border-color: #cfe5fb;
+    }
+    .details-body .chip.cancelled {
+        background: var(--cancelled-bg); color: var(--cancelled-text); border-color: #f6bbb5;
+    }
+    /* Soft separators between groups in the section (if multiple ULs are used) */
+    .details-body .details-section + .details-section {
+        margin-top: .8rem;
+    }
+/* duplicate left-panel block removed; primary definitions remain above (lines ~562–614) */
+
+    /* Make left panel stay at the top and right panel scrollable (desktop) */
+    @media (min-width: 768px) {
+      .main-content-wrapper { align-items: flex-start; }
+      .left-panel { position: sticky; top: 12px; align-self: start; height: fit-content; }
+      .right-panel { max-height: calc(100vh - 24px); overflow-y: auto; padding-right: 6px; }
+      /* Consistent subtle scrollbar */
+      .right-panel::-webkit-scrollbar { width: 8px; }
+      .right-panel::-webkit-scrollbar-thumb { background: #dfe4fb; border-radius: 8px; }
+      .right-panel::-webkit-scrollbar-track { background: transparent; }
+    }
+   /* overlap/grid styles consolidated into primary .right-panel and .performance-grid-2 definitions above */
+/* Flat theme overrides: remove shadows across cards and tiles */
+.admin-header-card,
+.admin-user-info-card,
+.performance-section,
+.user-summary-card,
+.right-panel .user-summary-card,
+.right-panel .user-summary-card .metric,
+.metric,
+.calendar-popup,
+.details-dialog,
+.details-body .detail-item {
+  box-shadow: none !important;
+}
+.user-summary-card:hover,
+.right-panel .user-summary-card .metric:hover,
+.details-body .detail-item:hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
+</style>
 </head>
-<body>
+<body class="admin-page">
     <div id="admin-dashboard" class="dashboard-container" style="display:none;">
         <!-- Two-panel layout -->
         <div class="main-content-wrapper">
@@ -466,11 +902,11 @@
                     </div>
                     <button id="admin-logout-btn" class="logout-btn">Logout</button>
                 </div>
-
                 <!-- Hello Admin -->
                 <div class="admin-user-info-card">
                     <div class="info-title">Hello, <span id="admin-user-name"></span>!</div>
                 </div>
+
 
                 <!-- Overall Daily Performance (All users for selected date) -->
                 <div class="performance-section">
@@ -494,7 +930,6 @@
                         </div>
                     </div>
                 </div>
-
                 <!-- Year to Date Performance (All users, current year) -->
                 <div class="performance-section">
                     <h3>Year to Date Performance</h3>
@@ -518,7 +953,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- RIGHT PANEL (60%) -->
             <div class="right-panel">
                 <div class="view-controls">
@@ -561,19 +995,15 @@
     }
     const auth = firebase.auth();
     const db = firebase.firestore();
-
     // Example: Assume admin UIDs are in this array (replace with your logic)
     const ADMIN_UIDS = ["0MbDZJCVZoXglO2t0CUGyU3krEa2"];
-
     auth.onAuthStateChanged(user => {
         if (user && ADMIN_UIDS.includes(user.uid)) {
             document.getElementById('admin-dashboard').style.display = 'block';
-
             // Fill user info card
             document.getElementById('admin-user-name').textContent = user.displayName || "Admin";
             const dateBtn = document.getElementById('date-display');
             if (dateBtn) dateBtn.textContent = new Date().toISOString().slice(0, 10);
-
             // Fetch extra info from Firestore if needed
             db.collection("users").doc(user.uid).get().then(doc => {
                 if (doc.exists) {
@@ -582,12 +1012,10 @@
                     document.getElementById('admin-position').textContent = data.position || "";
                 }
             });
-
             // Logout button
             document.getElementById('admin-logout-btn').onclick = () => {
                 auth.signOut().then(() => window.location.href = "index.html");
             };
-
             // Initialize calendar, start realtime subscriptions, and render users summary
             if (window.initAdminCalendar) window.initAdminCalendar();
             if (window.startAdminRealtime) window.startAdminRealtime();
