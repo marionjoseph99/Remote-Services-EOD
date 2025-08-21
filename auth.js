@@ -25,7 +25,8 @@ import {
     where,
     updateDoc,
     deleteDoc,
-    writeBatch
+    writeBatch,
+    orderBy
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 import {
     getStorage
@@ -302,6 +303,39 @@ export const setupOngoingTasksListener = (userId, callback) => {
             tasks.push(doc.data());
         });
         callback(tasks);
+    });
+};
+
+/* ================= Inquiries / Challenges (per-note docs) =================
+   Path design:
+   users/{uid}/inquiries/{YYYY-MM-DD}/notes/{noteId}
+   Each note doc: { id, content, createdAt }
+========================================================================== */
+
+export const addInquiryNote = async (userId, dateKey, content) => {
+    const notesCol = collection(db, `users/${userId}/inquiries/${dateKey}/notes`);
+    const noteRef = doc(notesCol);
+    await setDoc(noteRef, { id: noteRef.id, content, createdAt: serverTimestamp() });
+    return noteRef.id;
+};
+
+export const updateInquiryNote = async (userId, dateKey, noteId, content) => {
+    const noteRef = doc(db, `users/${userId}/inquiries/${dateKey}/notes/${noteId}`);
+    await updateDoc(noteRef, { content });
+};
+
+export const deleteInquiryNote = async (userId, dateKey, noteId) => {
+    const noteRef = doc(db, `users/${userId}/inquiries/${dateKey}/notes/${noteId}`);
+    await deleteDoc(noteRef);
+};
+
+export const setupInquiryNotesListener = (userId, dateKey, callback) => {
+    const notesCol = collection(db, `users/${userId}/inquiries/${dateKey}/notes`);
+    const q = query(notesCol, orderBy('createdAt', 'asc'));
+    return onSnapshot(q, (snap) => {
+        const notes = [];
+        snap.forEach(d => notes.push(d.data()));
+        callback(notes);
     });
 };
 
