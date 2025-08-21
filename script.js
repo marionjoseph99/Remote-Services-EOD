@@ -1,5 +1,5 @@
 // File: script.js
-import { HighlightManager } from './highlight.js';
+import { HighlightManager, InquiriesManager } from './highlight.js';
 
 import {
     registerUser,
@@ -16,7 +16,11 @@ import {
     setupDailyActivitiesListener,
     setupOngoingTasksListener,
     updateActivityContent,
-    db
+    db,
+    addInquiryNote,
+    updateInquiryNote,
+    deleteInquiryNote,
+    setupInquiryNotesListener
 } from './auth.js';
 import {
     collection,
@@ -82,19 +86,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const notificationContainer = document.getElementById('notification-container');
 
-    // Highlight Elements
-    const highlightDisplay = document.getElementById('highlight-display');
-    const highlightEdit = document.getElementById('highlight-edit');
-    const highlightEditBtn = document.getElementById('highlight-edit-btn');
-    const highlightSaveBtn = document.getElementById('highlight-save-btn');
-    const highlightCancelBtn = document.getElementById('highlight-cancel-btn');
-    
-    console.log('Highlight elements:', {
-        highlightDisplay,
-        highlightEdit,
-        highlightEditBtn
-    });
-    
+    // Highlight & Inquiries (cards) Elements
+    const highlightsList = document.getElementById('highlights-list');
+    const inquiriesList = document.getElementById('inquiries-list');
+    const addHighlightBtn = document.getElementById('add-highlight-btn');
+    const addInquiryBtn = document.getElementById('add-inquiry-btn');
+
+    // Note Modal Elements
+    const noteModal = document.getElementById('note-modal');
+    const noteModalTitle = document.getElementById('note-modal-title');
+    const noteModalClose = document.getElementById('note-modal-close');
+    const noteTextInput = document.getElementById('note-text-input');
+    const saveNoteBtn = document.getElementById('save-note-btn');
 
     // State Variables
     let overallPerformance = {
@@ -108,6 +111,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentUserId = null;
     let modalStatus;
     let highlightManager;
+    let inquiriesManager;
+    let unsubscribeInquiryNotes = null;
+
+    // Note modal context
+    let currentNoteContext = {
+        kind: null,            // 'highlight' | 'inquiry'
+        editing: false,
+        noteId: null,          // for inquiry edit
+        targetCard: null       // for highlight edit (DOM card)
+    };
 
     // Unsubscribe functions for real-time listeners
     let unsubscribeDaily = null;
@@ -116,6 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Data from listeners
     let dailyActivitiesData = [];
     let ongoingTasksData = [];
+    // Guard to prevent overlapping calendar renders from duplicating days
+    let calendarRenderSeq = 0;
 
     let authMode = 'login';
     const statusOptions = {
@@ -158,98 +173,337 @@ document.addEventListener('DOMContentLoaded', () => {
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     }
-    function updateHighlightManagerDate(date) {
-    if (highlightManager) {
-        highlightManager.setDate(date);
-        setupHighlightUI(); // Refresh the highlight UI with new date
-    }
+
+// ===== Month entry indicators for calendar (completed/ongoing created within the month) =====
+const monthEntriesCache = {};
+function monthKeyOf(y, m) {
+  return `${y}-${String(m + 1).padStart(2, '0')}`;
 }
+async function ensureMonthEntries(userId, year, month) {
+  if (!userId) return new Set();
+  const mkey = monthKeyOf(year, month);
+  if (monthEntriesCache[mkey]) return monthEntriesCache[mkey];
 
-    // Highlight Functions
-    async function setupHighlightUI() {
-    if (!highlightManager) return;
+  const mm = String(month + 1).padStart(2, '0');
+  const start = `${year}-${mm}-01`;
+  const end = `${year}-${mm}-31`;
 
-    const highlightDisplay = document.getElementById('highlight-display');
-    const highlightEditorContainer = document.getElementById('highlight-editor');
-    const editBtn = document.getElementById('highlight-edit-btn');
-    const saveBtn = document.getElementById('highlight-save-btn');
-    const cancelBtn = document.getElementById('highlight-cancel-btn');
+  const dates = new Set();
 
-    // Initialize Quill with default toolbar
-    if (!window.quillHighlight) {
-        window.quillHighlight = new Quill('#highlight-quill', {
-            theme: 'snow',
-            modules: {
-                toolbar: [
-                    [{ 'header': [1, 2, false] }],
-                    ['bold', 'italic', 'underline'],
-                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                    ['clean']
-                ]
-            }
+  try {
+    // Completed tasks in this month
+    const drCol = collection(db, `users/${userId}/dailyReports`);
+    const drQ = query(drCol, where('completionDate', '>=', start), where('completionDate', '<=', end));
+    const drSnap = await getDocs(drQ);
+    drSnap.forEach(d => {
+      const dstr = d.data().completionDate;
+      if (typeof dstr === 'string' && dstr.startsWith(`${year}-${mm}-`)) dates.add(dstr);
+    });
+
+    // Ongoing tasks created in this month
+    const ogCol = collection(db, `users/${userId}/ongoingTasks`);
+    const ogQ = query(ogCol, where('creationDate', '>=', start), where('creationDate', '<=', end));
+    const ogSnap = await getDocs(ogQ);
+    ogSnap.forEach(d => {
+      const cstr = d.data().creationDate;
+      if (typeof cstr === 'string' && cstr.startsWith(`${year}-${mm}-`)) dates.add(cstr);
+    });
+  } catch (e) {
+    console.warn('Failed to load month entries', e);
+  }
+
+  monthEntriesCache[mkey] = dates;
+  return dates;
+}
+    // ===== Report Generation (PDF via html2canvas + jsPDF) =====
+    function buildReportSection(title, items, cls = '') {
+      const section = document.createElement('section');
+      section.className = `r-section ${cls}`;
+      const h3 = document.createElement('h3');
+      h3.className = 'r-title';
+      h3.textContent = title;
+      section.appendChild(h3);
+
+      const ul = document.createElement('ul');
+      ul.className = 'r-list';
+      if (!items || items.length === 0) {
+        const li = document.createElement('li');
+        li.textContent = 'None';
+        ul.appendChild(li);
+      } else {
+        items.forEach((it) => {
+          const li = document.createElement('li');
+          li.textContent = it;
+          ul.appendChild(li);
         });
-    }
-    const quill = window.quillHighlight;
-
-    // Load and display highlight
-    async function loadHighlight() {
-        const content = await highlightManager.load();
-        highlightDisplay.innerHTML = content ? content : '';
-        highlightDisplay.dataset.placeholder = "Click edit to add today's highlight";
-        updatePlaceholder();
+      }
+      section.appendChild(ul);
+      return section;
     }
 
-    function updatePlaceholder() {
-        if (!highlightDisplay.innerHTML.trim()) {
-            highlightDisplay.classList.add('empty');
+    function collectNotesFrom(container) {
+      if (!container) return [];
+      return Array.from(container.querySelectorAll('.note-text'))
+        .map(n => (n.textContent || '').trim())
+        .filter(Boolean);
+    }
+
+    async function generateDailyReport() {
+      try {
+        // Gather data by hierarchy
+        const ongoing = (ongoingTasksData || [])
+          .filter(t => t.status === 'wip' || t.status === 'not-started')
+          .map(t => t.description ? `${t.text} — ${t.description}` : `${t.text}`);
+
+        const completed = (dailyActivitiesData || [])
+          .filter(a => a.status === 'done')
+          .map(a => a.description ? `${a.text} — ${a.description}` : `${a.text}`);
+
+        const highlightsNotes = collectNotesFrom(document.getElementById('highlights-list'));
+        const inquiriesNotes = collectNotesFrom(document.getElementById('inquiries-list'));
+
+        const reportRoot = document.createElement('div');
+        reportRoot.id = 'report-canvas';
+        // Inject a scoped stylesheet that uses variables from style.css
+        const styleEl = document.createElement('style');
+        styleEl.textContent = `
+          @page { margin: 24pt; }
+          #report-canvas {
+            background: var(--card-bg-color);
+            color: var(--text-color);
+            padding: 20px;
+            width: 820px;
+            box-sizing: border-box;
+            font-family: 'Lexend', Arial, sans-serif;
+          }
+          .r-header {
+            display:flex;justify-content:space-between;align-items:center;
+            padding:12px 14px;border:1px solid var(--border-color);border-radius:12px;margin-bottom:12px;
+            background: var(--background-color);
+          }
+          .r-title-main { font-size:18px;font-weight:800;margin:0;color:var(--primary-color); }
+          .r-sub { font-size:12px;opacity:.85;margin:0; }
+          .r-section {
+            border:1px solid var(--border-color);border-radius:12px;padding:10px 12px;margin:12px 0;
+            background: var(--card-bg-color);
+          }
+          .r-title { margin:0 0 6px 0;font-size:14px;font-weight:800;color:var(--primary-color); }
+          .r-section.ongoing { border-left: 4px solid var(--not-started-text); }
+          .r-section.completed { border-left: 4px solid var(--done-text); }
+          .r-section.highlight { border-left: 4px solid var(--primary-color); }
+          .r-section.inquiry { border-left: 4px solid var(--cancelled-text); }
+          .r-list { margin:0;padding-left:18px;font-size:12px;line-height:1.4; }
+          .r-list li { margin: 3px 0; }
+        `;
+        reportRoot.appendChild(styleEl);
+
+        const header = document.createElement('div');
+        header.className = 'r-header';
+        const left = document.createElement('div');
+        left.innerHTML = `<div class="r-title-main">End of the Day Report</div>
+                          <div class="r-sub">${formatDate(selectedDate)}</div>`;
+        const right = document.createElement('div');
+        right.style.textAlign = 'right';
+        right.innerHTML = `<div class="r-sub">${userNameSpan?.textContent || 'User'}</div>
+                           <div class="r-sub">${userClientSpan?.textContent || ''}</div>
+                           <div class="r-sub">${userPositionSpan?.textContent || ''}</div>`;
+        header.appendChild(left);
+        header.appendChild(right);
+
+        reportRoot.appendChild(header);
+        reportRoot.appendChild(buildReportSection('Ongoing Tasks', ongoing, 'ongoing'));
+        reportRoot.appendChild(buildReportSection('Completed Tasks', completed, 'completed'));
+        reportRoot.appendChild(buildReportSection("Today's Highlight", highlightsNotes, 'highlight'));
+        reportRoot.appendChild(buildReportSection('Inquiries / Challenges', inquiriesNotes, 'inquiry'));
+
+        // attach temporarily to DOM for rendering
+        document.body.appendChild(reportRoot);
+
+        const canvas = await window.html2canvas(reportRoot, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+        const imgData = canvas.toDataURL('image/png');
+
+        // Create PDF (fit on single page)
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'pt', 'a4');
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+
+        const imgWidth = pageWidth - 40; // 20pt margins on both sides
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        let y = 20;
+        if (imgHeight > pageHeight - 40) {
+          // Scale down to fit page height if too tall
+          const scale = (pageHeight - 40) / imgHeight;
+          const scaledWidth = imgWidth * scale;
+          const scaledHeight = imgHeight * scale;
+          const x = (pageWidth - scaledWidth) / 2;
+          pdf.addImage(imgData, 'PNG', x, y, scaledWidth, scaledHeight);
         } else {
-            highlightDisplay.classList.remove('empty');
+          const x = 20;
+          pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
         }
+
+        const fileName = `Daily_Report_${formatDate(selectedDate)}.pdf`;
+        pdf.save(fileName);
+
+        // Cleanup
+        reportRoot.remove();
+        showNotification('Report generated!');
+      } catch (err) {
+        console.error('Failed to generate report', err);
+        showNotification('Failed to generate report', 'error');
+      }
+    }
+    function updateManagersDate(date) {
+      if (highlightManager) {
+        highlightManager.setDate(date);
+        loadHighlightSection();
+      }
+      if (inquiriesManager) {
+        inquiriesManager.setDate(date);
+        if (unsubscribeInquiryNotes) unsubscribeInquiryNotes();
+        const dateKey = formatDate(date);
+        unsubscribeInquiryNotes = setupInquiryNotesListener(currentUserId, dateKey, renderInquiryNotes);
+      }
     }
 
-    function toggleEditMode(editing) {
-        if (editing) {
-            highlightDisplay.style.display = 'none';
-            highlightEditorContainer.style.display = 'block';
-            quill.root.innerHTML = highlightDisplay.innerHTML;
-            editBtn.style.display = 'none';
-            saveBtn.style.display = 'inline-flex';
-            cancelBtn.style.display = 'inline-flex';
-        } else {
-            highlightDisplay.style.display = 'block';
-            highlightEditorContainer.style.display = 'none';
-            editBtn.style.display = 'inline-flex';
-            saveBtn.style.display = 'none';
-            cancelBtn.style.display = 'none';
-        }
+    // ---- Highlights section helpers (single-doc HTML per day) ----
+    function highlightCardHtml(text = '', noteIdAttr = '', kind = 'highlight') {
+      const typeClass = kind === 'inquiry' ? 'inquiry-note' : 'highlight-note';
+      return `
+        <div class="daily-report-card note-card ${typeClass}" data-kind="note" ${noteIdAttr}>
+          <div class="activity-text-container">
+            <div class="note-text">${text}</div>
+          </div>
+        </div>`;
+    }
+    async function serializeHighlightsAndSave() {
+      const html = highlightsList ? highlightsList.innerHTML.trim() : '';
+      try {
+        await highlightManager.save(html);
+      } catch (e) {
+        showNotification('Failed to save highlights', 'error');
+      }
+    }
+    async function loadHighlightSection() {
+      if (!highlightsList || !highlightManager) return;
+      const html = await highlightManager.load();
+      highlightsList.innerHTML = html || '';
     }
 
-    editBtn.addEventListener('click', () => toggleEditMode(true));
+    // Event delegation for highlight notes: open modal on card click
+    if (highlightsList) {
+      highlightsList.addEventListener('click', (e) => {
+        const card = e.target.closest('.daily-report-card');
+        if (!card) return;
+        const txtEl = card.querySelector('.note-text');
+        openNoteModal('highlight', txtEl ? txtEl.textContent : '', true, null, card);
+      });
+    }
 
-    cancelBtn.addEventListener('click', () => {
-        toggleEditMode(false);
-    });
+    // ---- Inquiries section helpers (per-note docs) ----
+    function renderInquiryNotes(notes) {
+      if (!inquiriesList) return;
+      inquiriesList.innerHTML = '';
+      (notes || []).forEach(n => {
+        inquiriesList.insertAdjacentHTML('beforeend', highlightCardHtml(n.content || '', `data-note-id="${n.id}"`, 'inquiry'));
+      });
+    }
+    if (inquiriesList) {
+      inquiriesList.addEventListener('click', async (e) => {
+        const card = e.target.closest('.daily-report-card');
+        if (!card) return;
+        const noteId = card.getAttribute('data-note-id');
+        const txtEl = card.querySelector('.note-text');
+        openNoteModal('inquiry', txtEl ? txtEl.textContent : '', true, noteId, card);
+      });
+    }
 
-    saveBtn.addEventListener('click', async () => {
-        const newContent = quill.root.innerHTML.trim();
+    // ---- Modal logic for add/edit notes ----
+    function openNoteModal(kind, initialText = '', editing = false, noteId = null, targetCard = null) {
+      currentNoteContext.kind = kind;
+      currentNoteContext.editing = editing;
+      currentNoteContext.noteId = noteId;
+      currentNoteContext.targetCard = targetCard;
+      noteModalTitle.textContent = (editing ? 'Edit ' : 'Add ') + (kind === 'inquiry' ? 'Inquiry/Challenge' : 'Highlight');
+      noteTextInput.value = initialText || '';
+      noteModal.style.display = 'flex';
+      // Toggle delete visibility in modal
+      const delBtn = document.getElementById('delete-note-btn');
+      if (delBtn) delBtn.style.display = editing ? 'inline-flex' : 'none';
+    }
+    function closeNoteModal() {
+      noteModal.style.display = 'none';
+      noteTextInput.value = '';
+      currentNoteContext = { kind: null, editing: false, noteId: null, targetCard: null };
+    }
+    if (noteModalClose) noteModalClose.addEventListener('click', closeNoteModal);
+    if (noteModal) {
+      noteModal.addEventListener('click', (e) => {
+        if (e.target === noteModal) closeNoteModal();
+      });
+    }
+    if (saveNoteBtn) {
+      saveNoteBtn.addEventListener('click', async () => {
+        const text = noteTextInput.value.trim();
+        if (!text) { showNotification('Please enter a note.', 'error'); return; }
+        const dateKey = formatDate(selectedDate);
+
         try {
-            await highlightManager.save(newContent);
-            highlightDisplay.innerHTML = newContent;
-            toggleEditMode(false);
-            updatePlaceholder();
+          if (currentNoteContext.kind === 'highlight') {
+            // Add/edit card in DOM then save whole HTML string to highlight doc
+            if (currentNoteContext.editing && currentNoteContext.targetCard) {
+              const t = currentNoteContext.targetCard.querySelector('.note-text');
+              if (t) t.textContent = text;
+            } else {
+              highlightsList.insertAdjacentHTML('beforeend', highlightCardHtml(text, '', 'highlight'));
+            }
+            await serializeHighlightsAndSave();
             showNotification('Highlight saved!');
-        } catch (error) {
-            showNotification('Failed to save highlight', 'error');
+          } else if (currentNoteContext.kind === 'inquiry') {
+            if (currentNoteContext.editing && currentNoteContext.noteId) {
+              await updateInquiryNote(currentUserId, dateKey, currentNoteContext.noteId, text);
+              showNotification('Inquiry updated!');
+            } else {
+              await addInquiryNote(currentUserId, dateKey, text);
+              showNotification('Inquiry added!');
+            }
+            // UI updates via listener
+          }
+        } catch (e) {
+          showNotification('Failed to save note', 'error');
+        } finally {
+          closeNoteModal();
         }
-    });
+      });
+    }
 
-    // Initial load
-    await loadHighlight();
-
-    // Update placeholder when content changes (for non-input events)
-    const observer = new MutationObserver(updatePlaceholder);
-    observer.observe(highlightDisplay, { childList: true, subtree: true });
-}
+    // Delete from modal
+    const deleteNoteBtn = document.getElementById('delete-note-btn');
+    if (deleteNoteBtn) {
+      deleteNoteBtn.addEventListener('click', async () => {
+        const dateKey = formatDate(selectedDate);
+        try {
+          if (currentNoteContext.kind === 'highlight') {
+            if (currentNoteContext.editing && currentNoteContext.targetCard) {
+              currentNoteContext.targetCard.remove();
+              await serializeHighlightsAndSave();
+              showNotification('Highlight removed');
+            }
+          } else if (currentNoteContext.kind === 'inquiry') {
+            if (currentNoteContext.editing && currentNoteContext.noteId) {
+              await deleteInquiryNote(currentUserId, dateKey, currentNoteContext.noteId);
+              showNotification('Inquiry removed');
+            }
+          }
+        } catch (err) {
+          showNotification('Failed to delete note', 'error');
+        } finally {
+          closeNoteModal();
+        }
+      });
+    }
 
     // Performance Functions
     function refreshPerformanceSummary() {
@@ -268,6 +522,60 @@ document.addEventListener('DOMContentLoaded', () => {
             if (task.status === 'wip') wipCount++;
             if (task.status === 'not-started') notStartedCount++;
         });
+// Calendar wiring compatible with admin.html
+let calendarWired = false;
+function initAdminCalendar() {
+  if (calendarWired) return;
+
+  // If elements are missing (rare), still render the grid once
+  if (!dateDisplay || !calendarPopup || !currentMonthYearSpan || !prevMonthBtn || !nextMonthBtn || !calendarGrid || !todayBtn) {
+    renderCalendar();
+    calendarWired = true;
+    return;
+  }
+
+  // Toggle popup
+  dateDisplay.addEventListener('click', () => {
+    calendarPopup.style.display = (calendarPopup.style.display === 'block') ? 'none' : 'block';
+  });
+
+  // Prev/Next month
+  prevMonthBtn.addEventListener('click', () => {
+    currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+    renderCalendar();
+  });
+  nextMonthBtn.addEventListener('click', () => {
+    currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+    renderCalendar();
+  });
+
+  // Today
+  todayBtn.addEventListener('click', () => {
+    selectedDate = new Date();
+    currentCalendarDate = new Date();
+    updateUI(currentUserId, selectedDate);
+    updateManagersDate(selectedDate);
+    renderCalendar();
+    calendarPopup.style.display = 'none';
+  });
+
+  // Close on outside click (matches admin calendar behavior)
+  document.addEventListener('click', function(event) {
+    if (!calendarPopup) return;
+    if (
+      calendarPopup.style.display === 'block' &&
+      !calendarPopup.contains(event.target) &&
+      (!dateDisplay || !dateDisplay.contains(event.target))
+    ) {
+      calendarPopup.style.display = 'none';
+    }
+  });
+
+  renderCalendar();
+  calendarWired = true;
+}
+// Expose to window to mirror admin function name
+window.initAdminCalendar = initAdminCalendar;
 
         todayPerformanceValues.done.textContent = doneCount;
         todayPerformanceValues.wip.textContent = wipCount;
@@ -365,7 +673,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderCalendar() {
+    async function renderCalendar() {
+        if (!calendarGrid || !currentMonthYearSpan) return;
+        const seq = ++calendarRenderSeq;
+        // Clear immediately to avoid any leftover content before async work
         calendarGrid.innerHTML = '';
         currentMonthYearSpan.textContent = currentCalendarDate.toLocaleDateString('en-US', {
             month: 'long',
@@ -380,6 +691,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const startDay = firstDayOfMonth.getDay();
         const totalDays = lastDayOfMonth.getDate();
         const todayDate = formatDate(new Date());
+
+        // Load month entries (completed and ongoing created) to show indicators
+        const monthDatesWithEntries = await ensureMonthEntries(currentUserId, year, month);
+        // If another render started while awaiting, abort this pass
+        if (seq !== calendarRenderSeq) return;
+        // Clear again (safety) before appending
+        calendarGrid.innerHTML = '';
 
         for (let i = 0; i < startDay; i++) {
             const blankDay = document.createElement('div');
@@ -400,12 +718,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (dateString === formatDate(selectedDate)) {
                 dayEl.classList.add('selected');
             }
+            // Indicator if there are entries on this date
+            if (monthDatesWithEntries && monthDatesWithEntries.has(dateString)) {
+                dayEl.classList.add('has-entry');
+            }
+
             dayEl.addEventListener('click', () => {
-            const parts = dateString.split('-');
-            selectedDate = new Date(parts[0], parts[1] - 1, parts[2], 12);
-            updateUI(currentUserId, selectedDate);
-            updateHighlightManagerDate(selectedDate); // Fixed function name
-        });
+                const parts = dateString.split('-');
+                selectedDate = new Date(parts[0], parts[1] - 1, parts[2], 12);
+                updateUI(currentUserId, selectedDate);
+                updateManagersDate(selectedDate);
+                // Close popup after selecting a date
+                if (calendarPopup) calendarPopup.style.display = 'none';
+                // Re-render to update selected state and indicators
+                renderCalendar();
+            });
 
             calendarGrid.appendChild(dayEl);
         }
@@ -562,11 +889,15 @@ document.addEventListener('DOMContentLoaded', () => {
     currentUserId = user.uid;
     
 
-    // Initialize highlight manager
+    // Initialize highlight / inquiries managers and load sections
     highlightManager = new HighlightManager(user.uid, selectedDate);
-
+    inquiriesManager = new InquiriesManager(user.uid, selectedDate);
+    
     try {
-        await setupHighlightUI();
+        await loadHighlightSection();
+        // Subscribe inquiries for current date
+        if (unsubscribeInquiryNotes) unsubscribeInquiryNotes();
+        unsubscribeInquiryNotes = setupInquiryNotesListener(currentUserId, formatDate(selectedDate), renderInquiryNotes);
 
         // Rest of your dashboard setup
         if (unsubscribeOngoing) unsubscribeOngoing();
@@ -584,7 +915,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         await updateUI(user.uid, new Date());
-        renderCalendar();
+        // Mirror admin calendar initialization (align with admin.html)
+        if (window.initAdminCalendar) { window.initAdminCalendar(); } else { try { initAdminCalendar(); } catch(e) {} }
     } catch (error) {
         console.error("Dashboard initialization failed:", error);
         showNotification('Failed to initialize dashboard', 'error');
@@ -653,28 +985,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    dateDisplay.addEventListener('click', () => {
-        calendarPopup.style.display = calendarPopup.style.display === 'block' ? 'none' : 'block';
-    });
-
-    prevMonthBtn.addEventListener('click', () => {
-        currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
-        renderCalendar();
-    });
-
-    nextMonthBtn.addEventListener('click', () => {
-        currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
-        renderCalendar();
-    });
-
-    todayBtn.addEventListener('click', () => {
-        selectedDate = new Date();
-        currentCalendarDate = new Date();
-        updateUI(currentUserId, selectedDate);
-        updateHighlightManagerDate(selectedDate);
-        renderCalendar();
-        calendarPopup.style.display = 'none';
-    });
+    // Legacy calendar listeners removed; initAdminCalendar wires these to avoid double-binding.
 
     document.addEventListener('click', (e) => {
         const isClickInsideDropdown = e.target.closest('.status-dropdown');
@@ -719,6 +1030,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     addActivityBtn.addEventListener('click', addNewActivity);
+
+    // Add buttons open modal now
+    if (addHighlightBtn) {
+      addHighlightBtn.addEventListener('click', () => openNoteModal('highlight'));
+    }
+    if (addInquiryBtn) {
+      addInquiryBtn.addEventListener('click', () => openNoteModal('inquiry'));
+    }
+
+    // Generate Report button
+    const genReportBtn = document.getElementById('generate-report-btn');
+    if (genReportBtn) {
+      genReportBtn.addEventListener('click', generateDailyReport);
+    }
 
     document.querySelector('.ongoing-tasks-header').addEventListener('click', () => {
         const content = document.querySelector('.ongoing-tasks-content');
@@ -1238,18 +1563,5 @@ firebase.auth().onAuthStateChanged(user => {
         }
     });
 
-    document.addEventListener('click', function(event) {
-        const calendarPopup = document.querySelector('.calendar-popup');
-        const dateDisplay = document.getElementById('date-display');
-        if (!calendarPopup) return;
-
-        // If the popup is open and the click is outside both the popup and the button
-        if (
-            calendarPopup.style.display === 'block' &&
-            !calendarPopup.contains(event.target) &&
-            (!dateDisplay || !dateDisplay.contains(event.target))
-        ) {
-            calendarPopup.style.display = 'none';
-        }
-    });
+    // Global outside-click handler removed; initAdminCalendar already registers a scoped handler.
 });
