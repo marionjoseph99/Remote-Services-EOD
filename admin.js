@@ -192,68 +192,111 @@ function startsWithYear(dateStr, year) {
 
 // Build Year-to-Date details HTML for modal (client-friendly)
 function buildYtdHtml(year, users) {
-  // Prepare per-user aggregates and sort for readability (Done desc, then WIP, then total)
-  const sorted = [...users].map(u => {
+  // Aggregate per user and overall
+  const derived = [...users].map(u => {
     const name = u.name || u.id;
     const position = u.position || '';
     const tasks = (u && u.tasks) ? u.tasks : [];
-
     const done = tasks.filter(t => t.source === 'dailyReports' && t.status === 'done' && startsWithYear(t.completionDate, year)).length;
     const cancelled = tasks.filter(t => t.source === 'dailyReports' && t.status === 'cancelled' && startsWithYear(t.completionDate, year)).length;
     const wip = tasks.filter(t => t.source === 'ongoingTasks' && t.status === 'wip' && startsWithYear(t.creationDate, year)).length;
     const notStarted = tasks.filter(t => t.source === 'ongoingTasks' && t.status === 'not-started' && startsWithYear(t.creationDate, year)).length;
-
     const total = done + cancelled + wip + notStarted;
-    const pct = (n) => total ? Math.round((n / total) * 100) : 0;
+    return { name, position, done, cancelled, wip, notStarted, total };
+  });
 
-    return {
-      name, position, done, cancelled, wip, notStarted, total,
-      pctDone: pct(done), pctWip: pct(wip), pctNS: pct(notStarted), pctCan: pct(cancelled)
-    };
-  }).sort((a, b) => (b.done - a.done) || (b.wip - a.wip) || (b.total - a.total));
+  const totals = derived.reduce((acc, v) => {
+    acc.done += v.done; acc.cancelled += v.cancelled; acc.wip += v.wip; acc.notStarted += v.notStarted; acc.total += v.total;
+    return acc;
+  }, { done:0, cancelled:0, wip:0, notStarted:0, total:0 });
+  const pct = (n, d) => d ? Math.round((n/d)*100) : 0;
+  const pctDone = pct(totals.done, totals.total);
+  const pctWip = pct(totals.wip, totals.total);
+  const pctNS = pct(totals.notStarted, totals.total);
+  const pctCan = pct(totals.cancelled, totals.total);
 
+  // Sort users by Done desc, then WIP, then total
+  const sorted = derived.sort((a, b) => (b.done - a.done) || (b.wip - a.wip) || (b.total - a.total));
+
+  // Summary chips
+  const chip = (label, count, bg, color) =>
+    `<span style="display:inline-block;padding:.3rem .7rem;border-radius:9999px;font-size:.82rem;font-weight:800;background:${bg};color:${color};">${label}: ${count}</span>`;
+  const summaryChips = [
+    chip('Done', totals.done, 'var(--done-bg)', 'var(--done-text)'),
+    chip('WIP', totals.wip, 'var(--wip-bg)', '#8a6d00'),
+    chip('Not Started', totals.notStarted, 'var(--not-started-bg)', 'var(--not-started-text)'),
+    chip('Cancelled', totals.cancelled, 'var(--cancelled-bg)', 'var(--cancelled-text)')
+  ].join(' ');
+
+  // Summary segmented bar
+  const seg = (w, bg) => `<span style="display:inline-block;height:100%;width:${w}%;background:${bg};"></span>`;
+  const summaryBar = `
+    <div style="height:12px;border-radius:9999px;background:#eef2f7;overflow:hidden;">
+      ${seg(pctDone, 'var(--done-bg)')}
+      ${seg(pctWip, 'var(--wip-bg)')}
+      ${seg(pctNS, 'var(--not-started-bg)')}
+      ${seg(pctCan, 'var(--cancelled-bg)')}
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8rem;margin-top:.4rem;color:var(--secondary-color);">
+      <span>${totals.total} total tasks YTD</span>
+      <span>${pctDone}% Done • ${pctWip}% WIP • ${pctNS}% Not Started • ${pctCan}% Cancelled</span>
+    </div>
+  `;
+
+  // Legend row
+  const dot = (bg,label) => `<span style="display:inline-flex;align-items:center;gap:.35rem;"><span style="width:9px;height:9px;border-radius:50%;display:inline-block;background:${bg};"></span>${label}</span>`;
+  const legend = `
+    <div style="display:flex;flex-wrap:wrap;gap:.75rem;font-size:.8rem;color:var(--secondary-color);">
+      ${dot('var(--done-bg)', 'Done')}
+      ${dot('var(--wip-bg)', 'WIP')}
+      ${dot('var(--not-started-bg)', 'Not Started')}
+      ${dot('var(--cancelled-bg)', 'Cancelled')}
+    </div>
+  `;
+
+  // Per-user items (mini-cards)
   const items = sorted.map(item => {
     const secondary = item.position
       ? ` <span style="color: var(--secondary-color); font-weight:600; font-size:.85rem;">${item.position}</span>` : '';
-
-    const chip = (label, count, bg, color) =>
-      `<span style="display:inline-block;padding:.25rem .6rem;border-radius:9999px;font-size:.78rem;font-weight:700;background:${bg};color:${color};">${label}: ${count}</span>`;
-
-    const chips = [
+    const userChips = [
       chip('Done', item.done, 'var(--done-bg)', 'var(--done-text)'),
       chip('WIP', item.wip, 'var(--wip-bg)', '#8a6d00'),
       chip('Not Started', item.notStarted, 'var(--not-started-bg)', 'var(--not-started-text)'),
       chip('Cancelled', item.cancelled, 'var(--cancelled-bg)', 'var(--cancelled-text)')
     ].join(' ');
-
-    const seg = (w, bg) => `<span style="display:inline-block;height:100%;width:${w}%;background:${bg};"></span>`;
-    const bar = `
+    const t = item.total || 1;
+    const up = (n)=>Math.round((n/t)*100);
+    const userBar = `
       <div style="height:10px;border-radius:9999px;background:#eef2f7;overflow:hidden;">
-        ${seg(item.pctDone, 'var(--done-bg)')}
-        ${seg(item.pctWip, 'var(--wip-bg)')}
-        ${seg(item.pctNS, 'var(--not-started-bg)')}
-        ${seg(item.pctCan, 'var(--cancelled-bg)')}
+        ${seg(up(item.done), 'var(--done-bg)')}
+        ${seg(up(item.wip), 'var(--wip-bg)')}
+        ${seg(up(item.notStarted), 'var(--not-started-bg)')}
+        ${seg(up(item.cancelled), 'var(--cancelled-bg)')}
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:.78rem;margin-top:.35rem;color:var(--secondary-color);">
-        <span>${item.total} tasks YTD</span>
-        <span>${item.pctDone}% Done • ${item.pctWip}% WIP • ${item.pctNS}% Not Started • ${item.pctCan}% Cancelled</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:.78rem;margin-top:.3rem;color:var(--secondary-color);">
+        <span>${item.total} tasks</span>
+        <span>${up(item.done)}% • ${up(item.wip)}% • ${up(item.notStarted)}% • ${up(item.cancelled)}%</span>
       </div>
     `;
-
     return `
       <li class="detail-item">
         <div class="activity-text" style="display:flex;align-items:center;gap:.35rem;">
           <span>${item.name}</span>${secondary}
         </div>
-        <div class="activity-description" style="margin:.4rem 0 .5rem 0;">${chips}</div>
-        ${bar}
+        <div class="activity-description" style="margin:.45rem 0;">${userChips}</div>
+        ${userBar}
       </li>
     `;
   }).join('');
 
   return `
-    <div class="details-section">
-      <h4>Year to Date (${year})</h4>
+    <div class="details-section" style="margin-bottom:.75rem;">
+      <h4 style="margin-bottom:.35rem;">Year to Date (${year})</h4>
+      <div style="display:flex;flex-direction:column;gap:.55rem;margin-bottom:.65rem;">
+        <div>${summaryChips}</div>
+        ${summaryBar}
+        ${legend}
+      </div>
       <ul class="details-list">${items || '<li class="detail-item none">No YTD data</li>'}</ul>
     </div>
   `;
@@ -366,11 +409,6 @@ function subscribeAllUsers() {
           recomputeUserTasks(uid);
           renderAllUsers(selectedDate);
         });
-        subUnsubs[uid].highlights = db.collection("users").doc(uid).collection("highlights").onSnapshot((snap) => {
-          const highlights = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          upsertUser(uid, { highlights });
-          renderAllUsers(selectedDate);
-        });
       } else {
         renderAllUsers(selectedDate);
       }
@@ -402,7 +440,6 @@ async function renderAllUsers(date = selectedDate) {
     const cancelledCount = tasks.filter(t => t.source === 'dailyReports' && t.status === 'cancelled' && t.completionDate === key).length;
     const wipCount = tasks.filter(t => t.source === 'ongoingTasks' && t.status === 'wip').length;
     const notStartedCount = tasks.filter(t => t.source === 'ongoingTasks' && t.status === 'not-started').length;
-    const highlight = (user.highlights || []).find(h => h.id === key)?.content || 'None';
     const displayName = user.name || user.id;
     const position = user.position || 'N/A';
     // Build details (expanded) content
@@ -443,28 +480,23 @@ async function renderAllUsers(date = selectedDate) {
         <div class="user-summary-card" data-user-id="${user.id}">
             <h3>${displayName}<span class="user-position">${position}</span> <span class="user-date">${formatMMDDYYYY(date)}</span></h3>
             <div class="performance-grid-2">
-                <div class="metric green">
+                <div class="metric green" data-status="done">
                     <p>Done</p>
                     <p class="value">${doneCount}</p>
                 </div>
-                <div class="metric yellow">
+                <div class="metric yellow" data-status="wip">
                     <p>WIP</p>
                     <p class="value">${wipCount}</p>
                 </div>
-                <div class="metric blue">
+                <div class="metric blue" data-status="not-started">
                     <p>Not Started</p>
                     <p class="value">${notStartedCount}</p>
                 </div>
-                <div class="metric orange">
+                <div class="metric orange" data-status="cancelled">
                     <p>Cancelled</p>
                     <p class="value">${cancelledCount}</p>
                 </div>
             </div>
-            <div class="highlight" style="margin-top: .5rem;">
-                <strong>Highlight:</strong> ${highlight}
-            </div>
-
-            
         </div>
     `;
   }).join('');
@@ -477,7 +509,7 @@ async function renderAllUsers(date = selectedDate) {
     rightPanel.insertAdjacentHTML('beforeend', cardsHtml);
   }
 
-  // Wire metrics click to open details modal
+  // Wire metrics click to open details modal (filtered by clicked status)
   const cards = Array.from(rightPanel.querySelectorAll('.user-summary-card'));
   cards.forEach(card => {
     const metrics = card.querySelector('.performance-grid-2');
@@ -485,9 +517,23 @@ async function renderAllUsers(date = selectedDate) {
       e.stopPropagation();
       const uid = card.getAttribute('data-user-id');
       const user = allUsersData.find(u => u.id === uid);
-      const title = `${(user?.name || uid)} — ${formatMMDDYYYY(date)}`;
-      const html = buildDetailsHtml(user, key);
-      openDetailsModal(title, html);
+      if (!user) return;
+
+      const metricEl = e.target.closest('.metric');
+      const status = metricEl && metricEl.dataset ? metricEl.dataset.status : null;
+
+      const baseTitle = `${(user?.name || uid)} — ${formatMMDDYYYY(date)}`;
+      const statusLabelMap = { 'done': 'Done', 'wip': 'WIP', 'not-started': 'Not Started', 'cancelled': 'Cancelled' };
+
+      if (status) {
+        const html = buildStatusDetailsHtml(user, key, status);
+        const title = `${baseTitle} — ${statusLabelMap[status] || 'Details'}`;
+        openDetailsModal(title, html);
+      } else {
+        // Fallback: show all sections for the day if a non-metric area was clicked
+        const html = buildDetailsHtml(user, key);
+        openDetailsModal(baseTitle, html);
+      }
     });
   });
 
@@ -659,3 +705,54 @@ function initAdminCalendar() {
 window.initAdminCalendar = initAdminCalendar;
 window.renderAllUsers = renderAllUsers;
 window.startAdminRealtime = subscribeAllUsers;
+// Build a filtered details HTML for a specific status (clicked metric)
+function buildStatusDetailsHtml(user, key, status) {
+  if (!user) return '<div class="details-section"><ul class="details-list"><li class="detail-item none">No data</li></ul></div>';
+
+  const tasks = Array.isArray(user.tasks) ? user.tasks : [];
+  let items = [];
+
+  if (status === 'done') {
+    items = tasks.filter(t =>
+      t.source === 'dailyReports' &&
+      t.status === 'done' &&
+      t.completionDate === key
+    );
+  } else if (status === 'cancelled') {
+    items = tasks.filter(t =>
+      t.source === 'dailyReports' &&
+      t.status === 'cancelled' &&
+      t.completionDate === key
+    );
+  } else if (status === 'wip') {
+    // Ongoing tasks are not date-scoped
+    items = tasks.filter(t =>
+      t.source === 'ongoingTasks' &&
+      t.status === 'wip'
+    );
+  } else if (status === 'not-started') {
+    items = tasks.filter(t =>
+      t.source === 'ongoingTasks' &&
+      t.status === 'not-started'
+    );
+  }
+
+  const listHtml = items.length
+    ? items.map(a => `
+        <li class="detail-item ${a.status}">
+          <div class="activity-text">${a.text || ''}</div>
+          <div class="activity-description">${a.description || ''}</div>
+        </li>
+      `).join('')
+    : `<li class="detail-item none">No items found</li>`;
+
+  const statusLabelMap = { 'done': 'Done', 'wip': 'WIP', 'not-started': 'Not Started', 'cancelled': 'Cancelled' };
+  const sectionTitle = statusLabelMap[status] || 'Details';
+
+  return `
+    <div class="details-section">
+      <h4>${sectionTitle}</h4>
+      <ul class="details-list">${listHtml}</ul>
+    </div>
+  `;
+}
