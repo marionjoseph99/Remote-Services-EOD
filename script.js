@@ -1105,23 +1105,30 @@ window.initAdminCalendar = initAdminCalendar;
         toggleBtn.classList.toggle('collapsed');
     });
 
-    const ADMIN_UIDS = ["0MbDZJCVZoXglO2t0CUGyU3krEa2"]; // keep in sync with admin.html
+    // After successful login/auth state change, check if user is admin and redirect
+const ADMIN_UIDS = [
+  "0MbDZJCVZoXglO2t0CUGyU3krEa2",
+  "tcwVw2wAuBZ3Ln3aSnewrjyOy793"
+];
 
-firebase.auth().onAuthStateChanged(user => {
-    if (user) {
-        if (ADMIN_UIDS.includes(user.uid)) {
-            // If already on admin.html, do nothing
-            if (!window.location.pathname.endsWith("admin.html")) {
-                window.location.href = "admin.html";
-            }
-        } else {
-            // Normal user logic here (show dashboard, etc.)
-            // ...existing code...
-        }
-    } else {
-        // Not logged in, show login form or redirect
-        // ...existing code...
+function handleAuthRedirect(user) {
+  if (user && ADMIN_UIDS.includes(user.uid)) {
+    // If already on admin.html, do nothing
+    if (!window.location.pathname.endsWith('admin.html')) {
+      window.location.href = "admin.html";
     }
+  } else {
+    // If on admin.html but not admin, redirect to index.html
+    if (window.location.pathname.endsWith('admin.html')) {
+      window.location.href = "index.html";
+    }
+  }
+}
+
+// Example: If you use Firebase Auth state listener
+firebase.auth().onAuthStateChanged(user => {
+  handleAuthRedirect(user);
+  // ...your existing logic...
 });
 
     setupAuthChangeListener(
